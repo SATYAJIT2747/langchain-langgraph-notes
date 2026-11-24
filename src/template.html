@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LangChain & LangGraph Notes</title>
+<meta name="description" content="Revision notes for the CampusX LangChain and LangGraph playlists: concepts in simple words, short code snippets, plus evaluation, guardrails and interview extras.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F4F1EA; --paper2:#ECE7DC; --ink:#1B1A16; --ink2:#55524A; --rule:#D6D0C2;
+  --accent:#B43A22; --code-bg:#FBFAF6; --code-ink:#24231F; --mark:#F3DFA2;
+  --k:#8A2F1C; --s:#2F6B3A; --c:#8C877B; --f:#1F4E8C; --num:#7A4A00;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#151513; --paper2:#1D1D1A; --ink:#ECE8DF; --ink2:#A7A297; --rule:#34332E;
+    --accent:#E2694E; --code-bg:#1C1C19; --code-ink:#E6E2D8; --mark:#5A4A1C;
+    --k:#F08A6E; --s:#9CCB8E; --c:#7F7B71; --f:#8DB6F0; --num:#E3B86A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#151513; --paper2:#1D1D1A; --ink:#ECE8DF; --ink2:#A7A297; --rule:#34332E;
+  --accent:#E2694E; --code-bg:#1C1C19; --code-ink:#E6E2D8; --mark:#5A4A1C;
+  --k:#F08A6E; --s:#9CCB8E; --c:#7F7B71; --f:#8DB6F0; --num:#E3B86A;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 "IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.86em;background:var(--paper2);padding:.08em .32em;border-radius:3px}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:100vh}
+
+/* sidebar */
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid var(--rule);padding:22px 18px 40px;background:var(--paper)}
+.brand{font:600 22px/1.15 "Newsreader",serif;margin:0 0 4px;letter-spacing:-.01em}
+.brand b{color:var(--accent)}
+.sub-brand{font-size:12.5px;color:var(--ink2);margin:0 0 14px}
+.search{width:100%;padding:8px 10px;border:1px solid var(--rule);background:var(--code-bg);color:var(--ink);border-radius:4px;font:inherit;font-size:14px}
+.search:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.progress{font:500 12px "IBM Plex Mono",monospace;color:var(--ink2);margin:10px 0 4px;display:flex;justify-content:space-between;align-items:center}
+.bar{height:3px;background:var(--rule);margin-bottom:14px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.theme{background:none;border:1px solid var(--rule);color:var(--ink2);font:inherit;font-size:12px;padding:2px 8px;border-radius:3px;cursor:pointer}
+.navhead{font:600 11px/1.3 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:18px 0 6px}
+.side ol{list-style:none;margin:0;padding:0}
+.side li a{display:flex;gap:8px;text-decoration:none;font-size:13.5px;line-height:1.35;padding:5px 6px;border-radius:3px;color:var(--ink2)}
+.side li a:hover{background:var(--paper2);color:var(--ink)}
+.side li a.active{color:var(--ink);background:var(--paper2);box-shadow:inset 2px 0 0 var(--accent)}
+.side li a .n{font:500 11px/1.9 "IBM Plex Mono",monospace;color:var(--c);min-width:18px}
+.side li a.is-done{text-decoration:line-through;text-decoration-color:var(--c)}
+.side li.hide{display:none}
+
+/* main */
+main{padding:40px clamp(16px,5vw,72px) 120px;max-width:980px}
+.hero{border-bottom:1px solid var(--ink);padding-bottom:28px;margin-bottom:12px}
+.hero h1{font:600 clamp(34px,5vw,54px)/1.05 "Newsreader",serif;letter-spacing:-.02em;margin:0 0 14px}
+.hero h1 b{color:var(--accent)}
+.hero p{max-width:640px;color:var(--ink2);margin:0 0 10px}
+.stats{display:flex;flex-wrap:wrap;gap:28px;margin-top:20px;font:500 13px "IBM Plex Mono",monospace;color:var(--ink2)}
+.stats b{display:block;font:600 28px "Newsreader",serif;color:var(--ink)}
+.part{padding:64px 0 8px;border-bottom:1px solid var(--ink)}
+.parttitle{font:600 clamp(30px,4vw,44px)/1.1 "Newsreader",serif;margin:2px 0 6px;letter-spacing:-.015em}
+.partmeta{font:13px "IBM Plex Mono",monospace;color:var(--ink2);margin:0}
+.partmeta a{color:var(--accent)}
+.kicker{font:500 12px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:0}
+.video{padding:44px 0 36px;border-bottom:1px solid var(--rule)}
+.video.hide,.part.hide{display:none}
+.video h2{font:600 clamp(24px,3vw,31px)/1.2 "Newsreader",serif;margin:4px 0 6px;letter-spacing:-.01em}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:16px;font:13px "IBM Plex Mono",monospace;color:var(--ink2);margin:0}
+.meta .yt{color:var(--accent);text-decoration:none}
+.meta .yt:hover{text-decoration:underline}
+.done{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.done input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+h3.sub{font:600 11.5px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin:28px 0 8px}
+.concepts{margin:0}
+.concepts .c{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;padding:11px 0;border-top:1px solid var(--rule)}
+.concepts .c:first-child{border-top:none}
+.concepts dt{font-weight:600;font-size:15px;line-height:1.45}
+.concepts dd{margin:0;color:var(--ink)}
+.concepts dd b{font-weight:600}
+mark{background:var(--mark);color:inherit;padding:0 1px}
+
+/* code */
+figure.code{margin:14px 0 18px;border:1px solid var(--rule);border-radius:5px;overflow:hidden;background:var(--code-bg)}
+figure.code figcaption{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--rule);background:var(--paper2);font:500 12.5px "IBM Plex Sans",sans-serif;color:var(--ink2)}
+.copy{background:none;border:1px solid var(--rule);color:var(--ink2);font:500 11.5px "IBM Plex Mono",monospace;padding:2px 9px;border-radius:3px;cursor:pointer;flex-shrink:0}
+.copy:hover{color:var(--ink);border-color:var(--ink2)}
+pre{margin:0;padding:14px 16px;overflow-x:auto;font:13.2px/1.6 "IBM Plex Mono",ui-monospace,monospace;color:var(--code-ink);tab-size:4}
+pre code{background:none;padding:0;font-size:inherit;color:inherit}
+.hljs-keyword,.hljs-literal,.hljs-built_in{color:var(--k)}
+.hljs-string{color:var(--s)}
+.hljs-comment{color:var(--c);font-style:italic}
+.hljs-title,.hljs-title.function_,.hljs-title.class_{color:var(--f)}
+.hljs-number{color:var(--num)}
+.hljs-meta{color:var(--accent)}
+
+.remember{margin-top:22px;border-left:3px solid var(--accent);background:var(--paper2);padding:12px 16px 12px 18px}
+.remember h4{margin:0 0 4px;font:600 11.5px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--accent)}
+.remember ul{margin:0;padding-left:18px}
+.remember li{margin:3px 0}
+.empty{display:none;padding:40px 0;color:var(--ink2)}
+footer{padding:48px 0 0;color:var(--ink2);font-size:13px}
+
+/* mobile */
+.menu{display:none}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .side{position:fixed;inset:0 auto 0 0;width:min(320px,88vw);z-index:20;transform:translateX(-100%);transition:transform .25s;box-shadow:0 0 0 100vmax rgba(0,0,0,0)}
+  body.nav-open .side{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)}
+  .menu{display:inline-flex;position:fixed;right:16px;bottom:16px;z-index:30;background:var(--ink);color:var(--paper);border:none;border-radius:4px;padding:10px 14px;font:500 13px "IBM Plex Mono",monospace;cursor:pointer}
+  main{padding-top:28px}
+  .concepts .c{grid-template-columns:1fr;gap:2px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="side" aria-label="Contents">
+    <p class="brand">LangChain <b>&amp;</b> LangGraph</p>
+    <p class="sub-brand">CampusX playlists — revision notes</p>
+    <input class="search" id="q" type="search" placeholder="Search concepts, code… ( / )" autocomplete="off">
+    <div class="progress"><span id="prog">0 / {{TOTAL}} revised</span><button class="theme" id="theme" type="button">Theme</button></div>
+    <div class="bar"><i id="bar"></i></div>
+    {{NAV}}
+  </nav>
+  <main>
+    <div class="hero">
+      <p class="kicker">Revision notes</p>
+      <h1>LangChain <b>&amp;</b> LangGraph, in simple words</h1>
+      <p>Every important concept from the CampusX LangChain and LangGraph playlists, explained simply, with short code snippets that are easy to remember. Snippets use Gemini (<code>ChatGoogleGenerativeAI</code>), the same as the original practice code; any chat model works the same way.</p>
+      <p>Part III adds interview topics the playlists don't cover. Tick <i>Revised</i> on a section to track your progress (saved in this browser).</p>
+      <div class="stats"><span><b>{{LC}}</b>LangChain</span><span><b>{{LG}}</b>LangGraph + Evals/Guardrails</span><span><b>{{EX}}</b>Interview extras</span></div>
+    </div>
+    {{BODY}}
+    <p class="empty" id="empty">Nothing matches that search.</p>
+    <footer>Notes based on the CampusX “Generative AI using LangChain” and “Agentic AI using LangGraph” playlists, plus own practice code. Library APIs move fast; check the docs if an import fails.</footer>
+  </main>
+</div>
+<button class="menu" id="menu" type="button">Contents</button>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+(function(){
+  if (window.hljs) document.querySelectorAll('pre code').forEach(function(el){ hljs.highlightElement(el); });
+
+  // copy buttons
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.closest('figure').querySelector('code').innerText;
+      var done = function(){ btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = 'Copy'; }, 1200); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, done); else done();
+    });
+  });
+
+  // storage helpers
+  function load(k, d){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } }
+  function save(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+  // theme
+  var root = document.documentElement, t = load('lcn-theme', null);
+  if (t) root.setAttribute('data-theme', t);
+  document.getElementById('theme').addEventListener('click', function(){
+    var cur = root.getAttribute('data-theme') ||
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next); save('lcn-theme', next);
+  });
+
+  // revised tracking
+  var done = load('lcn-done', {});
+  var boxes = document.querySelectorAll('.done input');
+  var total = boxes.length;
+  function paint(){
+    var n = 0;
+    boxes.forEach(function(b){
+      var on = !!done[b.dataset.id]; b.checked = on; if (on) n++;
+      var a = document.querySelector('.side a[data-id="' + b.dataset.id + '"]');
+      if (a) a.classList.toggle('is-done', on);
+    });
+    document.getElementById('prog').textContent = n + ' / ' + total + ' revised';
+    document.getElementById('bar').style.width = (100 * n / total) + '%';
+  }
+  boxes.forEach(function(b){ b.addEventListener('change', function(){ done[b.dataset.id] = b.checked; save('lcn-done', done); paint(); }); });
+  paint();
+
+  // search
+  var q = document.getElementById('q');
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.video'));
+  sections.forEach(function(s){ s._text = s.textContent.toLowerCase(); });
+  q.addEventListener('input', function(){
+    var term = q.value.trim().toLowerCase(), shown = 0;
+    sections.forEach(function(s){
+      var ok = !term || s._text.indexOf(term) !== -1;
+      s.classList.toggle('hide', !ok);
+      var li = document.querySelector('.side a[data-id="' + s.id + '"]').parentNode;
+      li.classList.toggle('hide', !ok);
+      if (ok) shown++;
+    });
+    document.querySelectorAll('.part').forEach(function(p){ p.classList.toggle('hide', !!term); });
+    document.getElementById('empty').style.display = shown ? 'none' : 'block';
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === '/' && document.activeElement !== q){ e.preventDefault(); q.focus(); }
+  });
+
+  // active section in nav
+  var links = {};
+  document.querySelectorAll('.side li a').forEach(function(a){ links[a.dataset.id] = a; });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if (en.isIntersecting){
+        Object.keys(links).forEach(function(k){ links[k].classList.remove('active'); });
+        var a = links[en.target.id]; if (a){ a.classList.add('active'); }
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(function(s){ io.observe(s); });
+
+  // mobile menu
+  document.getElementById('menu').addEventListener('click', function(){ document.body.classList.toggle('nav-open'); });
+  document.querySelectorAll('.side a').forEach(function(a){ a.addEventListener('click', function(){ document.body.classList.remove('nav-open'); }); });
+})();
+</script>
+</body>
+</html>
