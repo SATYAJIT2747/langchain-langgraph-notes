@@ -4,6 +4,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from content_langchain import LANGCHAIN
 from content_langgraph import LANGGRAPH
 from content_extras import EXTRAS
+from easy import EASY
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PARTS = [
@@ -23,12 +24,20 @@ def section(v, n, part_name):
             ast.parse(c); return "python"
         except SyntaxError:
             return "bash"
-    code = "".join(
-        f'<figure class="code"><figcaption><span>{esc(t)}</span><button class="copy" type="button">Copy</button></figcaption>'
-        f'<pre><code class="language-{lang(c)}">{esc(c)}</code></pre></figure>' for t, c in v["code"])
+    def blocks(items):
+        return "".join(
+            f'<figure class="code"><figcaption><span>{esc(t)}</span><button class="copy" type="button">Copy</button></figcaption>'
+            f'<pre><code class="language-{lang(c)}">{esc(c)}</code></pre></figure>' for t, c in items)
+    e = EASY.get(v["id"], {})
+    keys = "".join(f'<tr><td><code>{esc(k)}</code></td><td>{esc(m)}</td></tr>' for k, m in e.get("keys", []))
+    keys = f'<table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody>{keys}</tbody></table>' if keys else ""
+    easy = blocks(e.get("easy", []))
+    easy_h = (f'<h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3>{keys}{easy}'
+              if (keys or easy) else "")
+    code = blocks(v["code"])
     rem = "".join(f"<li>{r}</li>" for r in v.get("remember", []))
     rem = f'<aside class="remember"><h4>Remember</h4><ul>{rem}</ul></aside>' if rem else ""
-    code_h = f'<h3 class="sub">Code</h3>{code}' if code else ""
+    code_h = easy_h + (f'<h3 class="sub">From the lecture <span class="tag">course / project code</span></h3>{code}' if code else "")
     return f'''
 <section class="video" id="{v["id"]}" data-title="{esc(v["title"].lower())}">
   <header>

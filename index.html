@@ -97,6 +97,13 @@ pre code{background:none;padding:0;font-size:inherit;color:inherit}
 .hljs-number{color:var(--num)}
 .hljs-meta{color:var(--accent)}
 
+h3.sub .tag{font-weight:400;text-transform:none;letter-spacing:0;color:var(--c);margin-left:6px}
+table.keys{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:14px}
+table.keys th{text-align:left;font:600 11px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);padding:6px 10px 6px 0;border-bottom:1px solid var(--ink)}
+table.keys td{padding:7px 10px 7px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+table.keys td:first-child{width:46%}
+table.keys td code{white-space:normal;word-break:break-word}
+@media (max-width:600px){table.keys td:first-child{width:auto}}
 .remember{margin-top:22px;border-left:3px solid var(--accent);background:var(--paper2);padding:12px 16px 12px 18px}
 .remember h4{margin:0 0 4px;font:600 11.5px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--accent)}
 .remember ul{margin:0;padding-left:18px}
@@ -192,7 +199,20 @@ footer{padding:48px 0 0;color:var(--ink2);font-size:13px}
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Language models</dt><dd><b>LLMs</b> (old style: string in → string out) vs <b>Chat Models</b> (list of messages in → message out, have roles, support history). Use <b>chat models</b> nowadays.</dd></div><div class="c"><dt>temperature</dt><dd>Controls randomness. <code>0</code>–0.3 → factual/deterministic (code, math). 0.7–1.5 → creative (stories, jokes).</dd></div><div class="c"><dt>max_completion_tokens</dt><dd>Limits how long the answer can be (cost control).</dd></div><div class="c"><dt>Closed vs open source</dt><dd>Closed (OpenAI, Claude, Gemini) = API, pay per token. Open source (Llama, Mistral, Qwen via HuggingFace) = free, private, customisable, but needs hardware and setup.</dd></div><div class="c"><dt>Using HF models</dt><dd>Either through the <b>HuggingFace Inference API</b> (<code>HuggingFaceEndpoint</code>) or <b>locally</b> (<code>HuggingFacePipeline</code>), then wrap with <code>ChatHuggingFace</code>.</dd></div><div class="c"><dt>Embedding models</dt><dd>Turn text into a vector of numbers. <code>embed_query(text)</code> → one vector, <code>embed_documents([texts])</code> → many vectors.</dd></div><div class="c"><dt>Document similarity demo</dt><dd>Embed the documents and the query, then use <b>cosine similarity</b>; the highest score = the most relevant document. This is the core idea behind RAG.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Chat model (any provider, same interface)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python"># one-time setup used in almost every snippet below
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>ChatGoogleGenerativeAI(model=)</code></td><td>which LLM to use</td></tr><tr><td><code>temperature</code></td><td>randomness (0 = same answer every time)</td></tr><tr><td><code>max_output_tokens</code></td><td>max answer length</td></tr><tr><td><code>llm.invoke(text)</code></td><td>ask once, get AIMessage</td></tr><tr><td><code>.content</code></td><td>the reply text</td></tr><tr><td><code>embed_query(text)</code></td><td>one text → one vector</td></tr><tr><td><code>embed_documents([texts])</code></td><td>many texts → many vectors</td></tr></tbody></table><figure class="code"><figcaption><span>Ask an LLM</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+llm = ChatGoogleGenerativeAI(
+    model=&quot;gemini-flash-lite-latest&quot;,
+    temperature=0,            # 0 = factual, 1 = creative
+    max_output_tokens=100,    # short answers
+)
+print(llm.invoke(&quot;Capital of Odisha?&quot;).content)</code></pre></figure><figure class="code"><figcaption><span>Text → vector</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+v = emb.embed_query(&quot;I love cricket&quot;)
+print(len(v), v[:5])          # vector size + first 5 numbers</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Chat model (any provider, same interface)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python"># one-time setup used in almost every snippet below
 # pip install langchain langchain-core langchain-community langchain-google-genai python-dotenv
 from dotenv import load_dotenv
 load_dotenv()                       # reads GOOGLE_API_KEY from .env
@@ -237,7 +257,27 @@ print(docs[best], scores[best])</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Static vs dynamic prompts</dt><dd>Static = the user types the whole prompt (risky, inconsistent). Dynamic = a fixed <b>template</b> with blanks that you fill (<code>{paper}</code>, <code>{style}</code>).</dd></div><div class="c"><dt>PromptTemplate</dt><dd>Template for <b>single-turn</b> text prompts. Why not plain f-strings? It gives <b>validation</b> (<code>validate_template=True</code>), <b>reusability</b> (save/load as JSON) and works in <b>chains</b> (it is a Runnable).</dd></div><div class="c"><dt>Messages</dt><dd><code>SystemMessage</code> (sets the role/behaviour), <code>HumanMessage</code> (user), <code>AIMessage</code> (model reply). A chat history is just a list of these.</dd></div><div class="c"><dt>Simple chatbot with memory</dt><dd>Keep a <code>chat_history</code> list; append the human message, invoke with the whole list, append the AI reply. That's how the bot 'remembers'.</dd></div><div class="c"><dt>ChatPromptTemplate</dt><dd>Template for <b>multi-turn / role-based</b> prompts: a list of (role, text) with placeholders.</dd></div><div class="c"><dt>MessagesPlaceholder</dt><dd>A slot inside a ChatPromptTemplate where you insert a <b>whole list of past messages</b> (chat history) at runtime.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>PromptTemplate</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.prompts import PromptTemplate
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>PromptTemplate.from_template(str)</code></td><td>template with {blanks}</td></tr><tr><td><code>template.invoke({...})</code></td><td>fill the blanks</td></tr><tr><td><code>input_variables</code></td><td>names of the blanks</td></tr><tr><td><code>SystemMessage / HumanMessage / AIMessage</code></td><td>bot role / user / bot reply</td></tr><tr><td><code>ChatPromptTemplate([(role, text)])</code></td><td>multi-message template</td></tr><tr><td><code>MessagesPlaceholder(variable_name=)</code></td><td>slot for chat history</td></tr></tbody></table><figure class="code"><figcaption><span>Fill a template</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.prompts import PromptTemplate
+
+t = PromptTemplate.from_template(&quot;Explain {topic} to a {level} in 2 lines&quot;)
+prompt = t.invoke({&quot;topic&quot;: &quot;RAG&quot;, &quot;level&quot;: &quot;child&quot;})
+print(llm.invoke(prompt).content)</code></pre></figure><figure class="code"><figcaption><span>Chat template with history slot</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+t = ChatPromptTemplate([
+    (&quot;system&quot;, &quot;You are a {role}&quot;),
+    MessagesPlaceholder(&quot;history&quot;),        # past messages go here
+    (&quot;human&quot;, &quot;{question}&quot;),
+])
+prompt = t.invoke({&quot;role&quot;: &quot;math teacher&quot;,
+                   &quot;history&quot;: [(&quot;human&quot;, &quot;My name is Satya&quot;), (&quot;ai&quot;, &quot;Hi Satya!&quot;)],
+                   &quot;question&quot;: &quot;What is my name?&quot;})
+print(llm.invoke(prompt).content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>PromptTemplate</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.prompts import PromptTemplate
 
 template = PromptTemplate(
     template=&quot;Explain {topic} in {style} style, in {length}.&quot;,
@@ -281,7 +321,19 @@ prompt = chat_template.invoke({
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>What & why</dt><dd>Making the LLM reply in a <b>fixed format (JSON / object)</b> instead of free text, so other code, databases or APIs can use it. Uses: data extraction (resume → JSON), API building, agents/tools (they need exact inputs).</dd></div><div class="c"><dt>with_structured_output()</dt><dd>For models that support it natively. Pass a schema: <code>llm.with_structured_output(Schema)</code>.</dd></div><div class="c"><dt>TypedDict</dt><dd>Python type hints for a dict. Simple, but <b>no runtime validation</b>. Use <code>Annotated[str, "description"]</code> to guide the LLM, <code>Optional</code> for may-be-missing, <code>Literal</code> for fixed choices.</dd></div><div class="c"><dt>Pydantic</dt><dd>Data validation library. <b>Validates and coerces types</b> at runtime, supports defaults, <code>Optional</code>, <code>EmailStr</code>, and <code>Field(description=..., ge=, le=)</code> constraints. Returns a Pydantic object.</dd></div><div class="c"><dt>JSON schema</dt><dd>Plain JSON describing the structure. Use when working across languages (no Python classes). Returns a dict.</dd></div><div class="c"><dt>When to use what</dt><dd>TypedDict → quick, Python-only, trust the data. <b>Pydantic → validation needed (most common)</b>. JSON schema → cross-language.</dd></div><div class="c"><dt>method</dt><dd><code>method="function_calling"</code> (default for most providers) or <code>"json_mode"</code>. Models without structured-output support → use <b>output parsers</b> (next video).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Pydantic basics (validation)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from pydantic import BaseModel, Field
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>BaseModel</code></td><td>Pydantic class = schema</td></tr><tr><td><code>Field(description=)</code></td><td>hint for the LLM</td></tr><tr><td><code>Field(gt=, lt=, ge=, le=)</code></td><td>number limits (validation)</td></tr><tr><td><code>Optional[x] = None</code></td><td>may be missing</td></tr><tr><td><code>Literal[&#x27;a&#x27;,&#x27;b&#x27;]</code></td><td>only these values</td></tr><tr><td><code>llm.with_structured_output(Schema)</code></td><td>LLM returns that schema</td></tr><tr><td><code>.model_dump()</code></td><td>Pydantic object → dict</td></tr></tbody></table><figure class="code"><figcaption><span>Get a Python object back</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class Movie(BaseModel):
+    title: str
+    rating: float = Field(ge=0, le=10, description=&quot;rating out of 10&quot;)
+    mood: Literal[&quot;happy&quot;, &quot;sad&quot;]
+
+m = llm.with_structured_output(Movie).invoke(&quot;3 Idiots is a fun movie, I give it 9&quot;)
+print(m.title, m.rating, m.mood)          # 3 Idiots 9.0 happy</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Pydantic basics (validation)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from pydantic import BaseModel, Field
 from typing import Optional
 
 class Student(BaseModel):
@@ -320,7 +372,24 @@ print(r[&quot;sentiment&quot;])             # dict access</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Output parsers</dt><dd>Classes that convert the raw LLM text into a usable format. They work with <b>any</b> model (even ones without structured-output support) and plug into chains.</dd></div><div class="c"><dt>StrOutputParser</dt><dd>Returns just the <b>text</b> (<code>.content</code>). The most used parser; makes chaining LLM calls easy.</dd></div><div class="c"><dt>JsonOutputParser</dt><dd>Forces JSON output via <code>parser.get_format_instructions()</code> in the prompt. Drawback: you <b>cannot enforce a schema</b>.</dd></div><div class="c"><dt>StructuredOutputParser</dt><dd>JSON with a schema defined via <code>ResponseSchema</code> list. Drawback: <b>no data validation</b>. (Now in <code>langchain_classic</code>.)</dd></div><div class="c"><dt>PydanticOutputParser</dt><dd>Schema + <b>validation</b> using a Pydantic model. The strongest parser.</dd></div><div class="c"><dt>partial_variables</dt><dd>Fill a template variable at creation time, e.g. <code>{format_instruction}</code> → the parser's format instructions.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>StrOutputParser in a chain</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.output_parsers import StrOutputParser
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>StrOutputParser()</code></td><td>AIMessage → plain string</td></tr><tr><td><code>JsonOutputParser()</code></td><td>text → dict (no schema)</td></tr><tr><td><code>PydanticOutputParser(pydantic_object=)</code></td><td>text → validated object</td></tr><tr><td><code>parser.get_format_instructions()</code></td><td>tells LLM the output format</td></tr><tr><td><code>partial_variables={...}</code></td><td>pre-filled template blank</td></tr></tbody></table><figure class="code"><figcaption><span>String parser (most used)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
+
+chain = PromptTemplate.from_template(&quot;One fact about {x}&quot;) | llm | StrOutputParser()
+print(chain.invoke({&quot;x&quot;: &quot;Mars&quot;}))        # plain string, no .content needed</code></pre></figure><figure class="code"><figcaption><span>JSON parser</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import PromptTemplate
+
+p = JsonOutputParser()
+t = PromptTemplate(template=&quot;Give name and age of a fictional person.\n{fmt}&quot;,
+                   input_variables=[],
+                   partial_variables={&quot;fmt&quot;: p.get_format_instructions()})
+print((t | llm | p).invoke({}))           # {&#x27;name&#x27;: ..., &#x27;age&#x27;: ...}</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>StrOutputParser in a chain</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 
 t1 = PromptTemplate.from_template(&quot;Write a detailed report on {topic}&quot;)
@@ -364,7 +433,34 @@ print((template | llm | parser).invoke({&quot;topic&quot;: &quot;black hole&quot
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Why chains</dt><dd>An LLM app has many steps (prompt → LLM → parse → ...). Chains connect them so the <b>output of one step automatically becomes the input of the next</b>. You only call <code>invoke</code> once.</dd></div><div class="c"><dt>Pipe operator <code>|</code></dt><dd>This is <b>LCEL</b> syntax: <code>prompt | llm | parser</code>.</dd></div><div class="c"><dt>Simple chain</dt><dd>prompt → model → parser.</dd></div><div class="c"><dt>Sequential chain</dt><dd>Two LLM calls in a row: e.g. generate a report → summarise it.</dd></div><div class="c"><dt>Parallel chain</dt><dd>Run independent chains at the same time with <code>RunnableParallel</code> (e.g. make notes and a quiz from the same text), then merge them.</dd></div><div class="c"><dt>Conditional chain</dt><dd>Choose a branch based on a condition with <code>RunnableBranch</code> (e.g. positive feedback → thank-you reply, negative → apology). Use a Pydantic parser so the classifier output is reliable.</dd></div><div class="c"><dt>Visualise</dt><dd><code>chain.get_graph().print_ascii()</code> prints the chain diagram.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Parallel chain</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.runnables import RunnableParallel
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>a | b | c</code></td><td>run in sequence</td></tr><tr><td><code>RunnableParallel({k: chain})</code></td><td>run together → dict</td></tr><tr><td><code>RunnableBranch((cond, chain), default)</code></td><td>if / else</td></tr><tr><td><code>RunnablePassthrough.assign(k=chain)</code></td><td>keep input + add a key</td></tr><tr><td><code>chain.get_graph().print_ascii()</code></td><td>draw the chain</td></tr></tbody></table><figure class="code"><figcaption><span>Sequential: topic → joke → explain</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+P, S = PromptTemplate.from_template, StrOutputParser()
+
+chain = P(&quot;Joke about {topic}&quot;) | llm | S | P(&quot;Explain this joke: {joke}&quot;) | llm | S
+print(chain.invoke({&quot;topic&quot;: &quot;exams&quot;}))   # string passes into {joke}</code></pre></figure><figure class="code"><figcaption><span>Conditional: positive vs negative</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableBranch, RunnablePassthrough
+from pydantic import BaseModel
+from typing import Literal
+P, S = PromptTemplate.from_template, StrOutputParser()
+
+class Mood(BaseModel):
+    sentiment: Literal[&quot;positive&quot;, &quot;negative&quot;]
+
+classify = P(&quot;Sentiment of: {text}&quot;) | llm.with_structured_output(Mood)
+
+chain = RunnablePassthrough.assign(mood=classify) | RunnableBranch(
+    (lambda x: x[&quot;mood&quot;].sentiment == &quot;positive&quot;, P(&quot;Thank the user for: {text}&quot;) | llm | S),
+    P(&quot;Apologise for: {text}&quot;) | llm | S,           # default branch
+)
+print(chain.invoke({&quot;text&quot;: &quot;Delivery was late and box was broken&quot;}))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Parallel chain</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.runnables import RunnableParallel
 
 notes_prompt = PromptTemplate.from_template(&quot;Make short notes from:\n{text}&quot;)
 quiz_prompt  = PromptTemplate.from_template(&quot;Make 5 Q&amp;A from:\n{text}&quot;)
@@ -413,7 +509,18 @@ branch = RunnableBranch(
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>The problem</dt><dd>Early LangChain components each had <b>different methods</b>: LLM → <code>predict()</code>, PromptTemplate → <code>format()</code>, retriever → <code>get_relevant_documents()</code>. So the team kept writing special chain classes (LLMChain, RetrievalQA, SequentialChain...). Too many chains, hard to learn, hard to maintain.</dd></div><div class="c"><dt>The fix: Runnable</dt><dd>A <b>common interface</b>. Every component is a <b>unit of work</b> with the same methods: <code>invoke()</code> (one input), <code>batch()</code> (many inputs), <code>stream()</code> (token by token).</dd></div><div class="c"><dt>Composable</dt><dd>Because they share an interface, any runnable can be connected to another; a chain of runnables is itself a runnable. Like LEGO blocks.</dd></div><div class="c"><dt>Code demo idea</dt><dd>He builds a fake 'NakliLLM' and 'NakliPromptTemplate' that both inherit an abstract <code>Runnable</code> class with <code>invoke</code>, then a <code>RunnableConnector</code> that runs a list of runnables one after another. That's exactly what <code>|</code> does internally.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Mini Runnable from scratch (the idea behind |)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from abc import ABC, abstractmethod
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>invoke(x)</code></td><td>one input</td></tr><tr><td><code>batch([x1, x2])</code></td><td>many inputs in parallel</td></tr><tr><td><code>stream(x)</code></td><td>output piece by piece</td></tr><tr><td><code>ainvoke / abatch / astream</code></td><td>async versions</td></tr></tbody></table><figure class="code"><figcaption><span>Same 3 methods on any runnable</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+chain = PromptTemplate.from_template(&quot;1-line joke on {t}&quot;) | llm | StrOutputParser()
+
+print(chain.invoke({&quot;t&quot;: &quot;AI&quot;}))
+print(chain.batch([{&quot;t&quot;: &quot;cats&quot;}, {&quot;t&quot;: &quot;dogs&quot;}]))
+for piece in chain.stream({&quot;t&quot;: &quot;Python&quot;}):
+    print(piece, end=&quot;&quot;, flush=True)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Mini Runnable from scratch (the idea behind |)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from abc import ABC, abstractmethod
 
 class Runnable(ABC):
     @abstractmethod
@@ -451,7 +558,18 @@ for chunk in chain.stream({&quot;t&quot;: &quot;AI&quot;}):         # token-by-t
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Two categories</dt><dd><b>Task-specific runnables</b> = core components converted to runnables (ChatModel, PromptTemplate, Retriever...). <b>Runnable primitives</b> = building blocks to define <b>how</b> they connect (sequence, parallel, branch...).</dd></div><div class="c"><dt>RunnableSequence</dt><dd>Runs runnables <b>one after another</b>. <code>RunnableSequence(a, b, c)</code> == <code>a | b | c</code>.</dd></div><div class="c"><dt>RunnableParallel</dt><dd>Runs several runnables on the <b>same input</b> at once; returns a dict <code>{key: output}</code>.</dd></div><div class="c"><dt>RunnablePassthrough</dt><dd>Returns the input <b>unchanged</b>. Used to carry a value forward (e.g. keep the joke while also explaining it).</dd></div><div class="c"><dt>RunnableLambda</dt><dd>Wrap <b>any Python function</b> as a runnable (e.g. word count, cleaning text, formatting docs).</dd></div><div class="c"><dt>RunnableBranch</dt><dd>if/elif/else for chains: list of <code>(condition, runnable)</code> + a default.</dd></div><div class="c"><dt>LCEL</dt><dd><b>LangChain Expression Language</b> — the declarative <code>|</code> syntax for sequences. Most common pattern in modern LangChain.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Sequence + Passthrough + Lambda (from your runnable_lambda.py)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.runnables import (RunnableSequence, RunnableParallel,
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>RunnableSequence(a, b)</code></td><td>same as a | b</td></tr><tr><td><code>RunnableParallel({...})</code></td><td>same input to many</td></tr><tr><td><code>RunnablePassthrough()</code></td><td>returns input unchanged</td></tr><tr><td><code>RunnableLambda(fn)</code></td><td>python function as a step</td></tr><tr><td><code>RunnableBranch(...)</code></td><td>if / elif / else</td></tr></tbody></table><figure class="code"><figcaption><span>All primitives without an LLM</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.runnables import (RunnableLambda, RunnableParallel,
+                                      RunnablePassthrough, RunnableBranch)
+
+double = RunnableLambda(lambda x: x * 2)
+plus1  = RunnableLambda(lambda x: x + 1)
+
+print((double | plus1).invoke(5))                                  # 11  (sequence)
+print(RunnableParallel(d=double, same=RunnablePassthrough()).invoke(5))  # {&#x27;d&#x27;: 10, &#x27;same&#x27;: 5}
+
+sign = RunnableBranch((lambda x: x &gt; 0, RunnableLambda(lambda x: &quot;positive&quot;)),
+                      RunnableLambda(lambda x: &quot;not positive&quot;))
+print(sign.invoke(-3))                                             # not positive</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Sequence + Passthrough + Lambda (from your runnable_lambda.py)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.runnables import (RunnableSequence, RunnableParallel,
                                       RunnablePassthrough, RunnableLambda)
 
 joke_chain = PromptTemplate.from_template(&quot;Write a joke about {topic}&quot;) | llm | StrOutputParser()
@@ -483,7 +601,16 @@ print((report | branch).invoke({&quot;topic&quot;: &quot;Russia vs Ukraine&quot;
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>RAG (quick)</dt><dd>Retrieval-Augmented Generation: give the LLM extra knowledge from <b>your</b> documents at question time. Components: loaders → splitters → vector store → retriever.</dd></div><div class="c"><dt>Document object</dt><dd>Every loader returns a list of <code>Document(page_content=..., metadata={...})</code>.</dd></div><div class="c"><dt>TextLoader</dt><dd>Loads a .txt file into one Document.</dd></div><div class="c"><dt>PyPDFLoader</dt><dd><b>One Document per page</b>; metadata has source + page. Works only for text PDFs. Scanned/complex PDFs → PDFPlumber, UnstructuredPDFLoader, PyMuPDF, AmazonTextract.</dd></div><div class="c"><dt>DirectoryLoader</dt><dd>Load all files in a folder via a <code>glob</code> + <code>loader_cls</code>.</dd></div><div class="c"><dt>load vs lazy_load</dt><dd><code>load()</code> = eager, returns a list (all in memory). <code>lazy_load()</code> = <b>generator</b>, one document at a time — use for many/large files.</dd></div><div class="c"><dt>WebBaseLoader</dt><dd>Loads text from a web page (requests + BeautifulSoup). Good for static pages; JS-heavy pages → SeleniumURLLoader.</dd></div><div class="c"><dt>CSVLoader</dt><dd><b>One Document per row</b>.</dd></div><div class="c"><dt>Custom loader</dt><dd>Inherit <code>BaseLoader</code> and implement <code>load</code>/<code>lazy_load</code> if your source isn't supported.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>All loaders in one place</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.document_loaders import (
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>Document(page_content, metadata)</code></td><td>text + info about it</td></tr><tr><td><code>.load()</code></td><td>all docs at once (list)</td></tr><tr><td><code>.lazy_load()</code></td><td>one by one (generator)</td></tr><tr><td><code>DirectoryLoader(path, glob, loader_cls)</code></td><td>folder, file pattern, which loader</td></tr><tr><td><code>encoding=&#x27;utf-8&#x27;</code></td><td>avoid unicode errors</td></tr></tbody></table><figure class="code"><figcaption><span>Load a text file you just created</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.document_loaders import TextLoader
+
+open(&quot;notes.txt&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;).write(&quot;LangChain helps build LLM apps.&quot;)
+
+docs = TextLoader(&quot;notes.txt&quot;, encoding=&quot;utf-8&quot;).load()
+print(len(docs))                 # 1
+print(docs[0].page_content)      # the text
+print(docs[0].metadata)          # {&#x27;source&#x27;: &#x27;notes.txt&#x27;}</code></pre></figure><figure class="code"><figcaption><span>Web page</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.document_loaders import WebBaseLoader
+docs = WebBaseLoader(&quot;https://en.wikipedia.org/wiki/LangChain&quot;).load()
+print(docs[0].page_content[:300])</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>All loaders in one place</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.document_loaders import (
     TextLoader, PyPDFLoader, DirectoryLoader, WebBaseLoader, CSVLoader)
 
 docs = TextLoader(&quot;cricket.txt&quot;, encoding=&quot;utf-8&quot;).load()
@@ -510,7 +637,16 @@ print(chain.invoke({&quot;poem&quot;: docs[0].page_content}))</code></pre></figu
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Why split</dt><dd>LLMs and embedding models have <b>context limits</b>; smaller chunks give <b>better embeddings</b>, <b>better semantic search</b>, and cheaper processing.</dd></div><div class="c"><dt>chunk_size / chunk_overlap</dt><dd>Size of each chunk and how much neighbouring chunks share (overlap keeps context across boundaries; ~10–20% is common).</dd></div><div class="c"><dt>1. Length based</dt><dd><code>CharacterTextSplitter</code> — cut every N characters. Fast, but cuts words/sentences in the middle.</dd></div><div class="c"><dt>2. Text-structure based ⭐</dt><dd><code>RecursiveCharacterTextSplitter</code> — tries separators in order: <code>"\n\n"</code> (paragraph) → <code>"\n"</code> (line) → <code>" "</code> (word) → <code>""</code> (char). Keeps paragraphs/sentences together. <b>Most used.</b></dd></div><div class="c"><dt>3. Document-structure based</dt><dd>For code/markdown/HTML: <code>RecursiveCharacterTextSplitter.from_language(Language.PYTHON, ...)</code> splits on <code>class</code>, <code>def</code>, etc. <code>MarkdownHeaderTextSplitter</code> splits on headers.</dd></div><div class="c"><dt>4. Semantic meaning based</dt><dd><code>SemanticChunker</code> embeds sentences and splits where the <b>meaning changes</b> (similarity drops beyond a threshold, e.g. standard deviation). Experimental.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>The splitters</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_text_splitters import (CharacterTextSplitter,
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>chunk_size</code></td><td>max characters per chunk</td></tr><tr><td><code>chunk_overlap</code></td><td>text shared between neighbours</td></tr><tr><td><code>separator</code></td><td>where to cut (length splitter)</td></tr><tr><td><code>split_text(str)</code></td><td>string → list of strings</td></tr><tr><td><code>split_documents(docs)</code></td><td>Documents → smaller Documents</td></tr><tr><td><code>from_language(Language.X)</code></td><td>code-aware splitting</td></tr></tbody></table><figure class="code"><figcaption><span>Recursive splitter on a string</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text = &quot;&quot;&quot;LangChain is a framework.
+
+It has loaders, splitters and retrievers.
+RAG uses all of them together.&quot;&quot;&quot;
+
+splitter = RecursiveCharacterTextSplitter(chunk_size=40, chunk_overlap=5)
+for c in splitter.split_text(text):
+    print(repr(c))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>The splitters</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_text_splitters import (CharacterTextSplitter,
     RecursiveCharacterTextSplitter, Language)
 
 # 1. length based
@@ -540,7 +676,18 @@ s4 = SemanticChunker(emb, breakpoint_threshold_type=&quot;standard_deviation&quo
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Why</dt><dd>Example: movie recommender. Keyword matching fails; you need <b>meaning</b> → embeddings. Then you need to store millions of vectors and search them fast → vector store.</dd></div><div class="c"><dt>Vector store</dt><dd>System to <b>store and retrieve embeddings</b>. Features: storage (memory/disk), <b>similarity search</b>, <b>indexing</b> (ANN like HNSW for speed), CRUD.</dd></div><div class="c"><dt>Vector store vs Vector DB</dt><dd>Vector store = lightweight library (FAISS). Vector <b>database</b> = full DB features too: distributed, backups, auth, ACID (Pinecone, Milvus, Weaviate, Qdrant). Every vector DB is a vector store, not vice-versa.</dd></div><div class="c"><dt>In LangChain</dt><dd>All stores share one interface: <code>from_documents</code>, <code>add_documents</code>, <code>similarity_search</code>, <code>as_retriever</code> — so switching Chroma ↔ FAISS ↔ Pinecone is easy.</dd></div><div class="c"><dt>Chroma</dt><dd>Lightweight, open source, good for local dev. Hierarchy: tenant → database → <b>collection</b> → documents (embedding + text + metadata).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Chroma CRUD + search (from your chroma_dem.ipynb)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_chroma import Chroma
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>Chroma.from_documents(docs, emb)</code></td><td>create + insert</td></tr><tr><td><code>persist_directory</code></td><td>save to disk folder</td></tr><tr><td><code>collection_name</code></td><td>like a table name</td></tr><tr><td><code>similarity_search(q, k=)</code></td><td>top k similar docs</td></tr><tr><td><code>similarity_search_with_score</code></td><td>docs + distance (lower = closer)</td></tr><tr><td><code>filter={...}</code></td><td>search only matching metadata</td></tr><tr><td><code>as_retriever()</code></td><td>turn into a retriever</td></tr></tbody></table><figure class="code"><figcaption><span>Tiny vector store</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
+
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+docs = [Document(page_content=&quot;Virat Kohli is a batsman&quot;, metadata={&quot;team&quot;: &quot;RCB&quot;}),
+        Document(page_content=&quot;Bumrah is a fast bowler&quot;,  metadata={&quot;team&quot;: &quot;MI&quot;})]
+
+vs = Chroma.from_documents(docs, emb, collection_name=&quot;ipl&quot;)
+print(vs.similarity_search(&quot;who bowls fast?&quot;, k=1))
+print(vs.similarity_search(&quot;player&quot;, k=2, filter={&quot;team&quot;: &quot;RCB&quot;}))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Chroma CRUD + search (from your chroma_dem.ipynb)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 docs = [Document(page_content=&quot;Hubble captured galaxy images&quot;, metadata={&quot;topic&quot;: &quot;Astronomy&quot;}),
@@ -569,7 +716,19 @@ vs.delete(ids=[ids[1]])</code></pre></figure><figure class="code"><figcaption><s
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Retriever</dt><dd>Takes a <b>query</b> and returns relevant <b>Documents</b> from a data source. Retrievers are <b>runnables</b> → <code>retriever.invoke(query)</code> and they plug into chains.</dd></div><div class="c"><dt>Types</dt><dd>By <b>data source</b> (Wikipedia, vector store, archive) and by <b>search strategy</b> (MMR, multi-query, contextual compression...).</dd></div><div class="c"><dt>WikipediaRetriever</dt><dd>Searches Wikipedia API and returns article text. (It's a retriever, not a tool, because it only fetches docs.)</dd></div><div class="c"><dt>Vector store retriever</dt><dd><code>vs.as_retriever(search_kwargs={"k": 3})</code> — plain similarity search.</dd></div><div class="c"><dt>MMR</dt><dd><b>Maximal Marginal Relevance</b>: picks results that are relevant <b>and different from each other</b>, avoiding 3 copies of the same idea. <code>lambda_mult</code>: 1 = pure relevance, 0 = max diversity.</dd></div><div class="c"><dt>MultiQueryRetriever</dt><dd>LLM rewrites an <b>ambiguous query into several queries</b>, retrieves for each, merges unique results. Good for vague questions.</dd></div><div class="c"><dt>ContextualCompressionRetriever</dt><dd>Retrieves docs then uses an LLM to <b>keep only the relevant sentences</b> from each doc. Good when docs are long and mixed-topic.</dd></div><div class="c"><dt>More</dt><dd>ParentDocumentRetriever, SelfQueryRetriever, EnsembleRetriever (hybrid BM25 + vectors), TimeWeighted...</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>All retrievers (from your all_Retrievers.ipynb)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.retrievers import WikipediaRetriever
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>retriever.invoke(query)</code></td><td>get relevant docs</td></tr><tr><td><code>search_kwargs={&#x27;k&#x27;: n}</code></td><td>how many docs</td></tr><tr><td><code>search_type=&#x27;mmr&#x27;</code></td><td>relevant + diverse</td></tr><tr><td><code>lambda_mult</code></td><td>1 = relevance, 0 = diversity</td></tr><tr><td><code>MultiQueryRetriever.from_llm</code></td><td>LLM makes many queries</td></tr><tr><td><code>ContextualCompressionRetriever</code></td><td>keep only relevant sentences</td></tr></tbody></table><figure class="code"><figcaption><span>Similarity vs MMR</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+texts = [&quot;Python is a language&quot;, &quot;Python is easy to learn&quot;,
+         &quot;Python is popular for AI&quot;, &quot;Java runs on the JVM&quot;]
+vs = FAISS.from_texts(texts, emb)
+
+normal = vs.as_retriever(search_kwargs={&quot;k&quot;: 2})
+mmr    = vs.as_retriever(search_type=&quot;mmr&quot;, search_kwargs={&quot;k&quot;: 2, &quot;lambda_mult&quot;: 0.3})
+print(normal.invoke(&quot;python&quot;))     # two very similar python docs
+print(mmr.invoke(&quot;python&quot;))        # more varied results</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>All retrievers (from your all_Retrievers.ipynb)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.retrievers import WikipediaRetriever
 wiki = WikipediaRetriever(top_k_results=2, lang=&quot;en&quot;)
 docs = wiki.invoke(&quot;Generative AI&quot;)
 
@@ -615,7 +774,24 @@ docs = cc.invoke(&quot;Explain photosynthesis&quot;)</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Problem</dt><dd>Ask questions about a long YouTube video instead of watching it.</dd></div><div class="c"><dt>Plan</dt><dd>Get transcript (youtube-transcript-api) → split → embed → FAISS → retriever → prompt → LLM.</dd></div><div class="c"><dt>Chain trick</dt><dd>Use <code>RunnableParallel</code> to build <code>{context, question}</code>: <code>context = retriever | format_docs</code>, <code>question = RunnablePassthrough()</code>.</dd></div><div class="c"><dt>Improvements</dt><dd>UI (Streamlit/Chrome plugin), evaluation (<b>RAGAS</b>, LangSmith), better indexing (translation, chunking), better retrieval (<b>query rewriting, multi-query, MMR, hybrid search, re-ranking</b>, compression), augmentation (prompt templating, grounding), generation (citations, guardrails), and later <b>agentic RAG</b>, memory, multimodal.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Full RAG chain in ~20 lines</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from youtube_transcript_api import YouTubeTranscriptApi
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>FAISS.from_texts / from_documents</code></td><td>build vector index</td></tr><tr><td><code>as_retriever(search_kwargs={&#x27;k&#x27;:})</code></td><td>top-k fetcher</td></tr><tr><td><code>RunnableParallel(context=..., question=...)</code></td><td>build prompt inputs</td></tr><tr><td><code>RunnablePassthrough()</code></td><td>pass the question as is</td></tr><tr><td><code>format_docs</code></td><td>docs → one string</td></tr></tbody></table><figure class="code"><figcaption><span>Smallest possible RAG</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+facts = [&quot;Our office is in Bhubaneswar.&quot;, &quot;Office hours are 10am to 6pm.&quot;, &quot;We have 40 employees.&quot;]
+retriever = FAISS.from_texts(facts, emb).as_retriever(search_kwargs={&quot;k&quot;: 2})
+
+prompt = PromptTemplate.from_template(&quot;Answer only from context.\nContext: {context}\nQ: {question}&quot;)
+fmt = lambda docs: &quot;\n&quot;.join(d.page_content for d in docs)
+
+rag = {&quot;context&quot;: retriever | fmt, &quot;question&quot;: RunnablePassthrough()} | prompt | llm | StrOutputParser()
+print(rag.invoke(&quot;When does the office open?&quot;))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Full RAG chain in ~20 lines</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from youtube_transcript_api import YouTubeTranscriptApi
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough, RunnableLambda
@@ -653,7 +829,15 @@ print(chain.invoke(&quot;Can you summarize the video?&quot;))</code></pre></figu
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Tool</dt><dd>A Python function packaged so an LLM can <b>understand and call it</b>: it has a <b>name</b>, a <b>description</b>, and an <b>input schema</b>. LLMs can think (brain) but can't act; tools are the hands.</dd></div><div class="c"><dt>Built-in tools</dt><dd><code>DuckDuckGoSearchRun</code>, <code>WikipediaQueryRun</code>, <code>ShellTool</code>, <code>PythonREPLTool</code>, RequestsGetTool, Gmail, Slack, SQL...</dd></div><div class="c"><dt>Custom tool — 3 ways</dt><dd>1) <code>@tool</code> decorator (simplest; type hints + docstring are required), 2) <code>StructuredTool.from_function</code> with a Pydantic <code>args_schema</code> (strict input), 3) subclass <code>BaseTool</code> (full control, async).</dd></div><div class="c"><dt>Inspect a tool</dt><dd><code>tool.name</code>, <code>tool.description</code>, <code>tool.args</code>, <code>tool.args_schema.model_json_schema()</code> — this schema is what the LLM sees.</dd></div><div class="c"><dt>Toolkit</dt><dd>A <b>group of related tools</b> (e.g. a GitHub or Gmail toolkit). Just a class with <code>get_tools()</code>.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Built-in + @tool + toolkit (from your tools.ipynb)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.tools import DuckDuckGoSearchRun
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>@tool</code></td><td>function → tool</td></tr><tr><td><code>docstring</code></td><td>tool description for LLM (required)</td></tr><tr><td><code>type hints</code></td><td>tool input schema</td></tr><tr><td><code>tool.name / .description / .args</code></td><td>what the LLM sees</td></tr><tr><td><code>tool.invoke({...})</code></td><td>run the tool</td></tr></tbody></table><figure class="code"><figcaption><span>Make and run a tool</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.tools import tool
+
+@tool
+def add(a: int, b: int) -&gt; int:
+    &quot;&quot;&quot;Add two numbers.&quot;&quot;&quot;
+    return a + b
+
+print(add.name, &quot;|&quot;, add.description, &quot;|&quot;, add.args)
+print(add.invoke({&quot;a&quot;: 2, &quot;b&quot;: 3}))       # 5</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Built-in + @tool + toolkit (from your tools.ipynb)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.tools import tool
 
 search = DuckDuckGoSearchRun()
@@ -689,7 +873,24 @@ multiply_tool = StructuredTool.from_function(
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Tool binding</dt><dd>Telling the LLM which tools exist: <code>llm_with_tools = llm.bind_tools([tool1, tool2])</code>. Only some models support this.</dd></div><div class="c"><dt>Tool calling</dt><dd>The LLM <b>doesn't run the tool</b>. It returns an AIMessage with <code>.tool_calls</code> = <code>[{name, args, id}]</code> saying which tool to call with what arguments.</dd></div><div class="c"><dt>Tool execution</dt><dd><b>You (LangChain)</b> run it: <code>tool.invoke(tool_call)</code> returns a <code>ToolMessage</code>. Add it to the message list and call the LLM again to get the final answer.</dd></div><div class="c"><dt>Currency conversion example</dt><dd>Tool 1 gets the conversion rate, tool 2 multiplies. The LLM should NOT guess the rate, so the rate arg is marked <code>Annotated[float, InjectedToolArg]</code> — the LLM leaves it out and <b>we inject it</b> from tool 1's result.</dd></div><div class="c"><dt>Is this an agent?</dt><dd><b>No</b> — we wrote the control flow (call tool 1, then tool 2) ourselves. An agent decides the steps <b>autonomously</b>.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Bind → call → execute → answer</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.messages import HumanMessage
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>llm.bind_tools([tools])</code></td><td>tell LLM the tools</td></tr><tr><td><code>ai_msg.tool_calls</code></td><td>[{name, args, id}] LLM wants to call</td></tr><tr><td><code>tool.invoke(tool_call)</code></td><td>run it → ToolMessage</td></tr><tr><td><code>ToolMessage</code></td><td>tool result sent back</td></tr><tr><td><code>InjectedToolArg</code></td><td>arg filled by us, not LLM</td></tr></tbody></table><figure class="code"><figcaption><span>The full tool-calling loop</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_core.tools import tool
+from langchain_core.messages import HumanMessage
+
+@tool
+def square(n: int) -&gt; int:
+    &quot;&quot;&quot;Return n squared.&quot;&quot;&quot;
+    return n * n
+
+llm_t = llm.bind_tools([square])
+msgs = [HumanMessage(&quot;What is 12 squared?&quot;)]
+
+ai = llm_t.invoke(msgs); msgs.append(ai)      # 1. LLM asks for the tool
+for call in ai.tool_calls:
+    msgs.append(square.invoke(call))          # 2. we run it (ToolMessage)
+print(llm_t.invoke(msgs).content)             # 3. LLM writes final answer</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Bind → call → execute → answer</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.messages import HumanMessage
 
 @tool
 def multiply(a: int, b: int) -&gt; int:
@@ -729,7 +930,20 @@ def convert(base_value: float, rate: Annotated[float, InjectedToolArg]) -&gt; fl
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>AI agent</dt><dd>An intelligent system that receives a <b>high-level goal</b>, then <b>plans, decides and executes steps by itself</b> using tools, adapting to results.</dd></div><div class="c"><dt>Characteristics</dt><dd>Goal-driven, supports reasoning/planning, uses tools, context-aware, adaptive.</dd></div><div class="c"><dt>ReAct</dt><dd><b>Reasoning + Acting</b> pattern: loop of <b>Thought → Action → Observation</b> until it has the final answer. (Paper: Yao et al. 2022.)</dd></div><div class="c"><dt>Agent vs AgentExecutor</dt><dd><b>Agent</b> = the LLM brain that decides the next action (Thought/Action). <b>AgentExecutor</b> = the runtime loop that actually runs the tool, feeds back the observation, and repeats.</dd></div><div class="c"><dt>Prompt</dt><dd>Classic ReAct prompt pulled from the hub: <code>hub.pull("hwchase17/react")</code>.</dd></div><div class="c"><dt>2026 note</dt><dd>In LangChain 1.x, the classic <code>AgentExecutor</code> lives in <code>langchain_classic</code>; the new API is <code>create_agent</code> (built on LangGraph). Same idea.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>ReAct agent as taught (classic API)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_classic.agents import create_react_agent, AgentExecutor
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>create_agent(model, tools, system_prompt)</code></td><td>ready-made ReAct agent (new API)</td></tr><tr><td><code>create_react_agent(llm, tools, prompt)</code></td><td>agent brain (classic)</td></tr><tr><td><code>AgentExecutor(agent, tools, verbose)</code></td><td>runs the loop (classic)</td></tr><tr><td><code>verbose=True</code></td><td>print thought/action/observation</td></tr><tr><td><code>result[&#x27;messages&#x27;][-1]</code></td><td>final answer</td></tr></tbody></table><figure class="code"><figcaption><span>Agent in 10 lines</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain.agents import create_agent
+from langchain_core.tools import tool
+
+@tool
+def get_weather(city: str) -&gt; str:
+    &quot;&quot;&quot;Get weather of a city.&quot;&quot;&quot;
+    return f&quot;32°C and sunny in {city}&quot;
+
+agent = create_agent(model=llm, tools=[get_weather], system_prompt=&quot;Be brief&quot;)
+res = agent.invoke({&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Weather in Puri?&quot;}]})
+print(res[&quot;messages&quot;][-1].content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>ReAct agent as taught (classic API)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_classic.agents import create_react_agent, AgentExecutor
 from langchain_classic import hub
 from langchain_community.tools import DuckDuckGoSearchRun
 
@@ -761,7 +975,10 @@ print(res[&quot;messages&quot;][-1].content)</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Why local LLMs</dt><dd>Proprietary APIs cost money, send data outside, need internet. Open-source LLMs (Llama, Qwen, Gemma, Mistral, DeepSeek) are now good enough.</dd></div><div class="c"><dt>Why open source is hard</dt><dd>Downloading weights, matching hardware, quantisation formats, serving them — painful to do yourself.</dd></div><div class="c"><dt>Ollama</dt><dd>A tool that <b>downloads, runs and serves open-source LLMs locally</b> with one command. Handles quantisation (GGUF), GPU/CPU, and exposes a REST API at <code>localhost:11434</code>.</dd></div><div class="c"><dt>Hardware</dt><dd>Rule of thumb: model size (in params) × quantisation decides RAM/VRAM. 7–8B models in 4-bit ≈ 5–6 GB.</dd></div><div class="c"><dt>CLI</dt><dd><code>pull</code>, <code>run</code>, <code>list</code>, <code>ps</code>, <code>show</code>, <code>rm</code>, <code>stop</code>. Inside chat: <code>/set parameter temperature 0.2</code>, <code>/show info</code>.</dd></div><div class="c"><dt>Modelfile</dt><dd>Create your own variant: base model + system prompt + parameters → <code>ollama create mybot -f Modelfile</code>.</dd></div><div class="c"><dt>Use from code</dt><dd>Python <code>ollama</code> library, REST API, OpenAI-compatible endpoint, and LangChain's <code>ChatOllama</code>. Vision models accept images.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>CLI basics</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-bash">ollama pull llama3.2          # download
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>ollama pull / run</code></td><td>download / chat</td></tr><tr><td><code>ollama list / ps</code></td><td>installed / running</td></tr><tr><td><code>ChatOllama(model=)</code></td><td>local model in LangChain</td></tr><tr><td><code>localhost:11434</code></td><td>Ollama&#x27;s local API</td></tr></tbody></table><figure class="code"><figcaption><span>Local model in LangChain</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python"># terminal first:  ollama pull llama3.2
+from langchain_ollama import ChatOllama
+llm = ChatOllama(model=&quot;llama3.2&quot;, temperature=0)
+print(llm.invoke(&quot;Say hi in Odia&quot;).content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>CLI basics</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-bash">ollama pull llama3.2          # download
 ollama run llama3.2           # chat in terminal
 ollama list                   # installed models
 ollama ps                     # running models
@@ -836,7 +1053,19 @@ print(llm.invoke(&quot;Explain RAG in 2 lines&quot;).content)   # drop-in for an
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>LangGraph</dt><dd>An <b>orchestration framework</b> that represents an LLM workflow as a <b>graph</b>: each node = a task (LLM call, tool, decision), edges = what runs next. Supports parallel, loops, branching, memory, resumability.</dd></div><div class="c"><dt>Workflow patterns</dt><dd><b>Prompt chaining</b> (sequential steps) · <b>Routing</b> (pick a path based on input) · <b>Parallelization</b> (split into independent subtasks, then merge) · <b>Orchestrator–workers</b> (orchestrator decides subtasks dynamically, workers do them) · <b>Evaluator–optimizer</b> (generate → critique → improve loop).</dd></div><div class="c"><dt>Nodes</dt><dd>Plain Python functions: <code>def node(state) -> dict</code>.</dd></div><div class="c"><dt>Edges</dt><dd>Normal edges (A → B), conditional edges (choose next node with a function), parallel edges (A → B, A → C), loops.</dd></div><div class="c"><dt>State</dt><dd>A shared memory (TypedDict / Pydantic) that flows through the graph. Every node receives the current state and returns <b>updates</b> (a partial dict).</dd></div><div class="c"><dt>Reducers</dt><dd>Decide <b>how an update is merged</b> into a state key. Default = <b>replace</b>. <code>operator.add</code> = append lists. <code>add_messages</code> = append/merge chat messages by ID. Needed when parallel nodes write the same key.</dd></div><div class="c"><dt>Execution model</dt><dd>Inspired by Google <b>Pregel</b>: define graph → <code>compile()</code> → <code>invoke(initial_state)</code>. Execution runs in <b>super-steps</b>: nodes that received a message run (possibly in parallel), send updates along edges, and the run stops when no node is active.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Reducer cheat sheet</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import operator
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>StateGraph(State)</code></td><td>create graph with this state</td></tr><tr><td><code>add_node(name, fn)</code></td><td>add a step</td></tr><tr><td><code>add_edge(a, b)</code></td><td>a then b</td></tr><tr><td><code>START / END</code></td><td>entry / exit</td></tr><tr><td><code>compile()</code></td><td>make it runnable</td></tr><tr><td><code>Annotated[list, operator.add]</code></td><td>reducer: append instead of replace</td></tr></tbody></table><figure class="code"><figcaption><span>See a reducer in action (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import operator
+from typing import TypedDict, Annotated
+from langgraph.graph import StateGraph, START, END
+
+class S(TypedDict):
+    nums: Annotated[list[int], operator.add]     # remove Annotated -&gt; error on parallel
+
+g = StateGraph(S)
+g.add_node(&quot;a&quot;, lambda s: {&quot;nums&quot;: [1]})
+g.add_node(&quot;b&quot;, lambda s: {&quot;nums&quot;: [2]})
+g.add_edge(START, &quot;a&quot;); g.add_edge(START, &quot;b&quot;)   # a and b run in parallel
+g.add_edge(&quot;a&quot;, END);   g.add_edge(&quot;b&quot;, END)
+print(g.compile().invoke({&quot;nums&quot;: []}))           # {&#x27;nums&#x27;: [1, 2]}</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Reducer cheat sheet</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import operator
 from typing import TypedDict, Annotated
 from langgraph.graph.message import add_messages
 
@@ -855,7 +1084,21 @@ class State(TypedDict):
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>5 steps to build any graph</dt><dd>1) define <b>state</b> (TypedDict) → 2) write <b>node functions</b> → 3) <code>StateGraph(State)</code> + <code>add_node</code> → 4) <code>add_edge</code> from START ... to END → 5) <code>compile()</code> and <code>invoke()</code>.</dd></div><div class="c"><dt>BMI workflow</dt><dd>Non-LLM example: calculate_bmi → label_bmi. Shows LangGraph is just a workflow engine.</dd></div><div class="c"><dt>Simple LLM workflow</dt><dd>One node that calls the LLM (question → answer).</dd></div><div class="c"><dt>Prompt chaining</dt><dd>Title → outline → blog → rating; each node uses the previous node's output from state.</dd></div><div class="c"><dt>Visualise</dt><dd><code>workflow.get_graph().draw_mermaid_png()</code> or just show <code>workflow</code> in Jupyter.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Prompt chaining: outline → blog</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>TypedDict state</code></td><td>shared data of the graph</td></tr><tr><td><code>node returns dict</code></td><td>only the keys it updates</td></tr><tr><td><code>invoke(initial_state)</code></td><td>run with starting values</td></tr><tr><td><code>get_graph().draw_mermaid_png()</code></td><td>picture of the graph</td></tr></tbody></table><figure class="code"><figcaption><span>2-step workflow (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class S(TypedDict):
+    name: str
+    greeting: str
+    shout: str
+
+def greet(s): return {&quot;greeting&quot;: f&quot;Hello {s[&#x27;name&#x27;]}&quot;}
+def loud(s):  return {&quot;shout&quot;: s[&quot;greeting&quot;].upper() + &quot;!&quot;}
+
+g = StateGraph(S)
+g.add_node(&quot;greet&quot;, greet); g.add_node(&quot;loud&quot;, loud)
+g.add_edge(START, &quot;greet&quot;); g.add_edge(&quot;greet&quot;, &quot;loud&quot;); g.add_edge(&quot;loud&quot;, END)
+print(g.compile().invoke({&quot;name&quot;: &quot;Satya&quot;}))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Prompt chaining: outline → blog</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
@@ -896,7 +1139,23 @@ print(final[&quot;content&quot;])</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Parallel edges</dt><dd>Add several edges from the same node (START → A, START → B, START → C). They run in the <b>same super-step</b>, then meet at a join node.</dd></div><div class="c"><dt>Batsman example (no LLM)</dt><dd>Strike rate, balls-per-boundary, boundary % computed in parallel → summary.</dd></div><div class="c"><dt>Golden rule</dt><dd>In parallel nodes, <b>return only the keys you changed</b>. Returning the full state makes all branches write every key → <code>InvalidUpdateError</code>.</dd></div><div class="c"><dt>UPSC essay evaluator</dt><dd>3 parallel LLM evaluators (language, analysis, clarity) each returning structured output (feedback + score) → final node averages scores and summarises feedback.</dd></div><div class="c"><dt>Reducer for shared key</dt><dd>All three write to <code>individual_scores</code>, so it must be <code>Annotated[list[int], operator.add]</code> to collect them instead of overwriting.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Fan-out / fan-in with a reducer</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>add_edge(START, x) many times</code></td><td>fan-out (parallel)</td></tr><tr><td><code>many edges into one node</code></td><td>fan-in (waits for all)</td></tr><tr><td><code>return only changed keys</code></td><td>avoid InvalidUpdateError</td></tr><tr><td><code>operator.add reducer</code></td><td>collect results from branches</td></tr></tbody></table><figure class="code"><figcaption><span>Parallel math (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class S(TypedDict):
+    n: int
+    sq: int
+    cube: int
+    total: int
+
+g = StateGraph(S)
+g.add_node(&quot;square&quot;, lambda s: {&quot;sq&quot;: s[&quot;n&quot;] ** 2})
+g.add_node(&quot;cube&quot;,   lambda s: {&quot;cube&quot;: s[&quot;n&quot;] ** 3})
+g.add_node(&quot;sum&quot;,    lambda s: {&quot;total&quot;: s[&quot;sq&quot;] + s[&quot;cube&quot;]})
+g.add_edge(START, &quot;square&quot;); g.add_edge(START, &quot;cube&quot;)     # parallel
+g.add_edge(&quot;square&quot;, &quot;sum&quot;); g.add_edge(&quot;cube&quot;, &quot;sum&quot;)     # join
+g.add_edge(&quot;sum&quot;, END)
+print(g.compile().invoke({&quot;n&quot;: 3}))     # sq 9, cube 27, total 36</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Fan-out / fan-in with a reducer</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
@@ -944,7 +1203,22 @@ print(g.compile().invoke({&quot;essay&quot;: &quot;India in the age of AI ...&qu
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Conditional edge</dt><dd><code>add_conditional_edges(source, router_fn)</code>: after <code>source</code> runs, <code>router_fn(state)</code> returns the <b>name of the next node</b>.</dd></div><div class="c"><dt>Type hint the router</dt><dd><code>-> Literal["a", "b"]</code> lets LangGraph draw the graph correctly. Or pass a mapping dict: <code>{"approved": END, "retry": "optimize"}</code>.</dd></div><div class="c"><dt>Quadratic equation example</dt><dd>Compute discriminant → route to real_roots / repeated_roots / no_real_roots.</dd></div><div class="c"><dt>LLM review handling</dt><dd>Classify review sentiment (structured output) → positive: thank-you reply; negative: run diagnosis (issue type, tone, urgency) → tailored reply.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Router with structured output</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>add_conditional_edges(src, fn)</code></td><td>fn decides next node</td></tr><tr><td><code>router returns node name</code></td><td>a string, not state</td></tr><tr><td><code>-&gt; Literal[&#x27;a&#x27;,&#x27;b&#x27;]</code></td><td>lets graph draw branches</td></tr><tr><td><code>path map {&#x27;x&#x27;: &#x27;node&#x27;}</code></td><td>map router output → node</td></tr></tbody></table><figure class="code"><figcaption><span>Even / odd router (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import TypedDict, Literal
+from langgraph.graph import StateGraph, START, END
+
+class S(TypedDict):
+    n: int
+    msg: str
+
+def route(s) -&gt; Literal[&quot;even&quot;, &quot;odd&quot;]:
+    return &quot;even&quot; if s[&quot;n&quot;] % 2 == 0 else &quot;odd&quot;
+
+g = StateGraph(S)
+g.add_node(&quot;even&quot;, lambda s: {&quot;msg&quot;: &quot;even number&quot;})
+g.add_node(&quot;odd&quot;,  lambda s: {&quot;msg&quot;: &quot;odd number&quot;})
+g.add_conditional_edges(START, route)
+g.add_edge(&quot;even&quot;, END); g.add_edge(&quot;odd&quot;, END)
+print(g.compile().invoke({&quot;n&quot;: 7}))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Router with structured output</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
@@ -991,7 +1265,39 @@ app = g.compile()</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Loop</dt><dd>A conditional edge that can point <b>back</b> to an earlier node. This is the <b>evaluator–optimizer</b> pattern.</dd></div><div class="c"><dt>X/Twitter post generator</dt><dd><b>generate</b> (funny tweet) → <b>evaluate</b> (strict critic LLM, structured: approved / needs_improvement + feedback) → if not approved → <b>optimize</b> using feedback → evaluate again.</dd></div><div class="c"><dt>Stop condition</dt><dd>Always cap loops: <code>iteration &gt;= max_iteration</code> → stop. Otherwise infinite loop / cost explosion. (LangGraph also has a <code>recursion_limit</code>, default 25.)</dd></div><div class="c"><dt>History with reducers</dt><dd><code>tweet_history</code> and <code>feedback_history</code> use <code>operator.add</code> to keep every version.</dd></div><div class="c"><dt>Different LLMs per role</dt><dd>generator / evaluator / optimizer can be different models (e.g. a stronger evaluator).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Generate → evaluate → optimize loop</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">def route_evaluation(state):
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>edge back to earlier node</code></td><td>creates a loop</td></tr><tr><td><code>iteration / max_iteration</code></td><td>stop condition</td></tr><tr><td><code>{&#x27;ok&#x27;: END, &#x27;retry&#x27;: &#x27;node&#x27;}</code></td><td>exit or loop</td></tr><tr><td><code>recursion_limit</code></td><td>safety cap (default 25)</td></tr></tbody></table><figure class="code"><figcaption><span>Loop until done (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class S(TypedDict):
+    count: int
+
+g = StateGraph(S)
+g.add_node(&quot;inc&quot;, lambda s: {&quot;count&quot;: s[&quot;count&quot;] + 1})
+g.add_edge(START, &quot;inc&quot;)
+g.add_conditional_edges(&quot;inc&quot;, lambda s: &quot;stop&quot; if s[&quot;count&quot;] &gt;= 5 else &quot;again&quot;,
+                        {&quot;stop&quot;: END, &quot;again&quot;: &quot;inc&quot;})        # loop back
+print(g.compile().invoke({&quot;count&quot;: 0}))      # {&#x27;count&#x27;: 5}</code></pre></figure><figure class="code"><figcaption><span>Write → check → rewrite (LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class S(TypedDict):
+    topic: str
+    tweet: str
+    tries: int
+
+def write(s):  return {&quot;tweet&quot;: llm.invoke(f&quot;Short funny tweet on {s[&#x27;topic&#x27;]}&quot;).content,
+                       &quot;tries&quot;: s[&quot;tries&quot;] + 1}
+def check(s):
+    ok = llm.invoke(f&quot;Is this tweet funny? answer yes or no only:\n{s[&#x27;tweet&#x27;]}&quot;).content
+    return &quot;done&quot; if &quot;yes&quot; in ok.lower() or s[&quot;tries&quot;] &gt;= 3 else &quot;rewrite&quot;
+
+g = StateGraph(S)
+g.add_node(&quot;write&quot;, write)
+g.add_edge(START, &quot;write&quot;)
+g.add_conditional_edges(&quot;write&quot;, check, {&quot;done&quot;: END, &quot;rewrite&quot;: &quot;write&quot;})
+print(g.compile().invoke({&quot;topic&quot;: &quot;Mondays&quot;, &quot;tries&quot;: 0}))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Generate → evaluate → optimize loop</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">def route_evaluation(state):
     if state[&quot;evaluation&quot;] == &quot;approved&quot; or state[&quot;iteration&quot;] &gt;= state[&quot;max_iteration&quot;]:
         return &quot;approved&quot;
     return &quot;needs_improvement&quot;
@@ -1020,7 +1326,21 @@ app.invoke({&quot;topic&quot;: &quot;Indian Railways&quot;, &quot;iteration&quot
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>State with messages</dt><dd><code>messages: Annotated[list[BaseMessage], add_messages]</code> — every turn appends to the conversation.</dd></div><div class="c"><dt>add_messages vs operator.add</dt><dd><code>operator.add</code> blindly concatenates lists. <code>add_messages</code> also converts dicts/tuples to message objects and <b>replaces messages with the same ID</b> (needed for edits/deletes).</dd></div><div class="c"><dt>Graph</dt><dd>START → chat_node → END. chat_node sends all messages to the LLM and returns <code>{"messages": [response]}</code>.</dd></div><div class="c"><dt>Problem</dt><dd>Without persistence, every <code>invoke</code> starts fresh → bot forgets. Fix in the next video (checkpointer).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Basic chatbot</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>MessagesState</code></td><td>built-in state with messages list</td></tr><tr><td><code>add_messages</code></td><td>append / replace by id</td></tr><tr><td><code>return {&#x27;messages&#x27;: [reply]}</code></td><td>reply is appended</td></tr></tbody></table><figure class="code"><figcaption><span>Chatbot using MessagesState</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langgraph.graph import StateGraph, START, END, MessagesState
+
+def chat(state: MessagesState):
+    return {&quot;messages&quot;: [llm.invoke(state[&quot;messages&quot;])]}
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, chat)
+g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+bot = g.compile()
+
+out = bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;Hi, I&#x27;m Satya&quot;)]})
+print(out[&quot;messages&quot;][-1].content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Basic chatbot</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
@@ -1055,7 +1375,24 @@ print(out[&quot;messages&quot;][-1].content)</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Persistence</dt><dd>Saving the graph's state <b>to storage</b> so it can be resumed later. Normally state is lost when the run ends; with persistence it's saved <b>after every super-step</b> (not just the final state).</dd></div><div class="c"><dt>Checkpointer</dt><dd>The object that saves those snapshots: <code>InMemorySaver</code> (dev), <code>SqliteSaver</code>, <code>PostgresSaver</code> (prod). Pass via <code>graph.compile(checkpointer=...)</code>.</dd></div><div class="c"><dt>Checkpoint</dt><dd>One saved snapshot of state at a super-step (has a <code>checkpoint_id</code>).</dd></div><div class="c"><dt>Thread</dt><dd>A separate conversation / run, identified by <code>thread_id</code> in <code>config={"configurable": {"thread_id": "1"}}</code>. Each thread has its own history.</dd></div><div class="c"><dt>get_state / get_state_history</dt><dd>Read the latest snapshot, or all snapshots of a thread.</dd></div><div class="c"><dt>Benefits</dt><dd><b>Short-term memory</b> (chat remembers), <b>fault tolerance</b> (resume after crash by invoking with <code>None</code>), <b>human-in-the-loop</b> (pause/resume), <b>time travel</b>.</dd></div><div class="c"><dt>Time travel</dt><dd>Replay from an old <code>checkpoint_id</code>, or <code>update_state</code> at an old checkpoint (e.g. change topic pizza → samosa) and re-run from there — creates a new branch.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Checkpointer, threads, time travel (from your 6_persistence)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.checkpoint.memory import InMemorySaver
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>compile(checkpointer=InMemorySaver())</code></td><td>save state each step</td></tr><tr><td><code>{&#x27;configurable&#x27;: {&#x27;thread_id&#x27;: ..}}</code></td><td>which conversation</td></tr><tr><td><code>get_state(config)</code></td><td>latest snapshot</td></tr><tr><td><code>get_state_history(config)</code></td><td>all snapshots</td></tr><tr><td><code>invoke(None, config)</code></td><td>resume, no new input</td></tr><tr><td><code>update_state(config, {...})</code></td><td>edit past state</td></tr></tbody></table><figure class="code"><figcaption><span>Memory across invokes + threads</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import InMemorySaver
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, lambda s: {&quot;messages&quot;: [llm.invoke(s[&quot;messages&quot;])]})
+g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+bot = g.compile(checkpointer=InMemorySaver())
+
+t1 = {&quot;configurable&quot;: {&quot;thread_id&quot;: &quot;1&quot;}}
+t2 = {&quot;configurable&quot;: {&quot;thread_id&quot;: &quot;2&quot;}}
+bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;My name is Satya&quot;)]}, t1)
+print(bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;My name?&quot;)]}, t1)[&quot;messages&quot;][-1].content)  # Satya
+print(bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;My name?&quot;)]}, t2)[&quot;messages&quot;][-1].content)  # doesn&#x27;t know
+
+print(len(list(bot.get_state_history(t1))), &quot;checkpoints in thread 1&quot;)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Checkpointer, threads, time travel (from your 6_persistence)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.checkpoint.memory import InMemorySaver
 
 workflow = graph.compile(checkpointer=InMemorySaver())
 
@@ -1086,7 +1423,31 @@ workflow.invoke(None, config1)</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Backend / frontend split</dt><dd><code>langgraph_backend.py</code> builds + compiles the graph (with checkpointer). <code>streamlit_frontend.py</code> handles the UI and imports <code>chatbot</code>.</dd></div><div class="c"><dt>st.chat_message / st.chat_input</dt><dd>Streamlit's built-in chat bubbles and input box.</dd></div><div class="c"><dt>st.session_state</dt><dd>Streamlit <b>reruns the whole script on every interaction</b>, so normal variables reset. <code>session_state</code> is a dict that survives reruns → store <code>message_history</code> there for display.</dd></div><div class="c"><dt>Two memories</dt><dd>The UI history (session_state, for displaying) and the graph memory (checkpointer + thread_id, for the LLM).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Minimal Streamlit chat</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import streamlit as st
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>st.chat_input()</code></td><td>input box at bottom</td></tr><tr><td><code>st.chat_message(role)</code></td><td>chat bubble</td></tr><tr><td><code>st.session_state</code></td><td>survives reruns</td></tr><tr><td><code>streamlit run app.py</code></td><td>start the app</td></tr></tbody></table><figure class="code"><figcaption><span>Whole chatbot UI in one file (app.py)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+import streamlit as st
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import InMemorySaver
+
+@st.cache_resource                      # build graph only once
+def get_bot():
+    g = StateGraph(MessagesState)
+    g.add_node(&quot;chat&quot;, lambda s: {&quot;messages&quot;: [llm.invoke(s[&quot;messages&quot;])]})
+    g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+    return g.compile(checkpointer=InMemorySaver())
+
+bot, cfg = get_bot(), {&quot;configurable&quot;: {&quot;thread_id&quot;: &quot;1&quot;}}
+st.session_state.setdefault(&quot;history&quot;, [])
+
+for role, text in st.session_state.history:
+    st.chat_message(role).write(text)
+
+if q := st.chat_input(&quot;Ask...&quot;):
+    st.chat_message(&quot;user&quot;).write(q)
+    a = bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, q)]}, cfg)[&quot;messages&quot;][-1].content
+    st.chat_message(&quot;assistant&quot;).write(a)
+    st.session_state.history += [(&quot;user&quot;, q), (&quot;assistant&quot;, a)]</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Minimal Streamlit chat</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import streamlit as st
 from langgraph_backend import chatbot
 from langchain_core.messages import HumanMessage
 
@@ -1121,7 +1482,19 @@ if user_input:
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Streaming</dt><dd>Sending the response <b>token by token</b> as it's generated instead of waiting for the full answer.</dd></div><div class="c"><dt>Why</dt><dd>Lower perceived latency (first token fast), feels human/ChatGPT-like, user can cancel early, better for long outputs, shows tool progress in agents.</dd></div><div class="c"><dt>graph.stream()</dt><dd><code>stream_mode="messages"</code> yields <code>(message_chunk, metadata)</code> tuples token by token. Other modes: <code>"values"</code> (full state after each step), <code>"updates"</code> (only the changes per node), <code>"custom"</code>.</dd></div><div class="c"><dt>Streamlit</dt><dd><code>st.write_stream(generator)</code> renders the chunks live and returns the full text.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Stream tokens into the UI</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">with st.chat_message(&quot;assistant&quot;):
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>graph.stream(input, config, stream_mode=)</code></td><td>yield output while running</td></tr><tr><td><code>stream_mode=&#x27;messages&#x27;</code></td><td>LLM tokens (chunk, metadata)</td></tr><tr><td><code>stream_mode=&#x27;updates&#x27;</code></td><td>what each node changed</td></tr><tr><td><code>stream_mode=&#x27;values&#x27;</code></td><td>full state after each step</td></tr><tr><td><code>st.write_stream(gen)</code></td><td>show tokens live in Streamlit</td></tr></tbody></table><figure class="code"><figcaption><span>Stream tokens in the terminal</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langgraph.graph import StateGraph, START, END, MessagesState
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, lambda s: {&quot;messages&quot;: [llm.invoke(s[&quot;messages&quot;])]})
+g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+bot = g.compile()
+
+for chunk, meta in bot.stream({&quot;messages&quot;: [(&quot;user&quot;, &quot;Write 5 lines on rain&quot;)]},
+                              stream_mode=&quot;messages&quot;):
+    print(chunk.content, end=&quot;&quot;, flush=True)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Stream tokens into the UI</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">with st.chat_message(&quot;assistant&quot;):
     ai_message = st.write_stream(
         chunk.content
         for chunk, metadata in chatbot.stream(
@@ -1142,7 +1515,27 @@ if user_input:
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Goal</dt><dd>ChatGPT-like sidebar: start a <b>New Chat</b>, see all past chats, click one to resume it.</dd></div><div class="c"><dt>Key idea</dt><dd>Each conversation = a separate <b>thread_id</b>. Generate it with <code>uuid.uuid4()</code>.</dd></div><div class="c"><dt>Pieces</dt><dd><code>generate_thread_id()</code>, <code>reset_chat()</code> (new thread + clear UI), <code>add_thread()</code> (store id in <code>session_state['chat_threads']</code>), <code>load_conversation(thread_id)</code> (read messages from the checkpointer via <code>chatbot.get_state(config).values['messages']</code>).</dd></div><div class="c"><dt>Convert messages</dt><dd>Checkpointer gives HumanMessage/AIMessage objects → convert to <code>{role, content}</code> dicts for the UI.</dd></div><div class="c"><dt>Task for you</dt><dd>Show a title (LLM-generated summary) instead of the raw uuid — you did this with <code>generate_summary()</code>.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Thread helpers</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import uuid
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>uuid.uuid4()</code></td><td>new unique thread id</td></tr><tr><td><code>new chat</code></td><td>new thread_id</td></tr><tr><td><code>open old chat</code></td><td>same thread_id + get_state</td></tr><tr><td><code>get_state(cfg).values[&#x27;messages&#x27;]</code></td><td>saved conversation</td></tr></tbody></table><figure class="code"><figcaption><span>Many conversations = many thread ids (terminal)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+import uuid
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import InMemorySaver
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, lambda s: {&quot;messages&quot;: [llm.invoke(s[&quot;messages&quot;])]})
+g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+bot = g.compile(checkpointer=InMemorySaver())
+
+chat_a, chat_b = str(uuid.uuid4()), str(uuid.uuid4())
+cfg = lambda tid: {&quot;configurable&quot;: {&quot;thread_id&quot;: tid}}
+
+bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;Let&#x27;s talk about cricket&quot;)]}, cfg(chat_a))
+bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;Let&#x27;s talk about cooking&quot;)]}, cfg(chat_b))
+
+# &quot;resume&quot; chat A: load its messages
+for m in bot.get_state(cfg(chat_a)).values[&quot;messages&quot;]:
+    print(type(m).__name__, &quot;:&quot;, m.content[:60])</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Thread helpers</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import uuid
 
 def generate_thread_id():
     return str(uuid.uuid4())
@@ -1177,7 +1570,23 @@ for tid in st.session_state[&quot;chat_threads&quot;][::-1]:
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Problem</dt><dd><code>InMemorySaver</code> loses everything when the app restarts.</dd></div><div class="c"><dt>SqliteSaver</dt><dd>Stores checkpoints in a SQLite file. <code>sqlite3.connect(..., check_same_thread=False)</code> because Streamlit uses multiple threads.</dd></div><div class="c"><dt>List all threads</dt><dd><code>checkpointer.list(None)</code> returns all checkpoints of all threads → collect unique <code>thread_id</code>s to rebuild the sidebar after restart.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Swap memory → SQLite</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import sqlite3
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>sqlite3.connect(file, check_same_thread=False)</code></td><td>DB file, allow multi-thread</td></tr><tr><td><code>SqliteSaver(conn)</code></td><td>checkpoints saved in SQLite</td></tr><tr><td><code>checkpointer.list(None)</code></td><td>all checkpoints of all threads</td></tr></tbody></table><figure class="code"><figcaption><span>Memory that survives restart (run twice)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+import sqlite3
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+saver = SqliteSaver(sqlite3.connect(&quot;memory.db&quot;, check_same_thread=False))
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, lambda s: {&quot;messages&quot;: [llm.invoke(s[&quot;messages&quot;])]})
+g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+bot = g.compile(checkpointer=saver)
+
+cfg = {&quot;configurable&quot;: {&quot;thread_id&quot;: &quot;me&quot;}}
+msg = input(&quot;You: &quot;)                   # 1st run: &quot;I am Satya&quot;, 2nd run: &quot;Who am I?&quot;
+print(bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, msg)]}, cfg)[&quot;messages&quot;][-1].content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Swap memory → SQLite</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import sqlite3
 from langgraph.checkpoint.sqlite import SqliteSaver     # pip install langgraph-checkpoint-sqlite
 
 conn = sqlite3.connect(database=&quot;chatbot.db&quot;, check_same_thread=False)
@@ -1200,7 +1609,18 @@ def retrieve_all_threads():
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Why</dt><dd>LLM apps are non-deterministic black boxes: a job-screening app suddenly takes 7 minutes, or a RAG bot gives wrong answers. You need to see <b>what happened inside</b>.</dd></div><div class="c"><dt>Observability</dt><dd>Ability to understand the internal state of a system from its outputs (logs, metrics, traces).</dd></div><div class="c"><dt>LangSmith</dt><dd>LangChain's platform for tracing, debugging, testing, evaluating and monitoring LLM apps. Works with any framework.</dd></div><div class="c"><dt>What it traces</dt><dd>Inputs/outputs of every step, prompts, intermediate steps, latency, <b>token usage and cost</b>, errors, metadata/tags, user feedback.</dd></div><div class="c"><dt>Core concepts</dt><dd><b>Project</b> (collection of traces) → <b>Trace</b> (one full execution of the app) → <b>Run</b> (one step inside, e.g. prompt/LLM/parser). Nested runs = spans.</dd></div><div class="c"><dt>@traceable</dt><dd>Trace any normal Python function (e.g. PDF loading, splitting in a RAG app) that isn't a LangChain runnable.</dd></div><div class="c"><dt>Other features</dt><dd>Monitoring & alerts dashboards, <b>datasets + evaluations</b> (run app on a test set, score with evaluators/LLM-as-judge), <b>prompt hub</b> / playground, annotation queues for human feedback.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Turn on tracing (no code changes needed for LangChain/LangGraph)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-bash"># .env
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>LANGCHAIN_TRACING_V2=true</code></td><td>turn tracing on</td></tr><tr><td><code>LANGCHAIN_API_KEY</code></td><td>LangSmith key</td></tr><tr><td><code>LANGCHAIN_PROJECT</code></td><td>project name in dashboard</td></tr><tr><td><code>@traceable</code></td><td>trace a normal function</td></tr><tr><td><code>config tags / metadata / run_name</code></td><td>labels to filter traces</td></tr></tbody></table><figure class="code"><figcaption><span>Trace a plain function</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import os
+os.environ[&quot;LANGCHAIN_TRACING_V2&quot;] = &quot;true&quot;
+os.environ[&quot;LANGCHAIN_PROJECT&quot;] = &quot;demo&quot;
+# os.environ[&quot;LANGCHAIN_API_KEY&quot;] = &quot;lsv2_...&quot;   (keep in .env)
+
+from langsmith import traceable
+
+@traceable(name=&quot;clean_text&quot;)
+def clean(text: str) -&gt; str:
+    return text.strip().lower()
+
+clean(&quot;  Hello LangSmith  &quot;)      # appears as a run in the &#x27;demo&#x27; project</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Turn on tracing (no code changes needed for LangChain/LangGraph)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-bash"># .env
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
 LANGCHAIN_API_KEY=lsv2_...
@@ -1223,7 +1643,13 @@ chain.invoke({&quot;question&quot;: &quot;...&quot;}, config=config)</code></pre
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Integration</dt><dd>Set the LangSmith env vars → every graph invocation becomes a trace, every node a run.</dd></div><div class="c"><dt>Threads in LangSmith</dt><dd>Pass <code>thread_id</code> in config (plus metadata) → LangSmith groups all turns of one conversation into a <b>Thread</b> view.</dd></div><div class="c"><dt>Per-project naming</dt><dd><code>os.environ['LANGCHAIN_PROJECT'] = 'chat-bot-dashboard_v2'</code> (as in your backend).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Group conversation turns</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">CONFIG = {
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>config[&#x27;metadata&#x27;]</code></td><td>extra info on the trace</td></tr><tr><td><code>thread_id in metadata</code></td><td>groups turns into a Thread</td></tr></tbody></table><figure class="code"><figcaption><span>Label a graph run</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">config = {
+    &quot;configurable&quot;: {&quot;thread_id&quot;: &quot;t1&quot;},     # memory
+    &quot;metadata&quot;: {&quot;thread_id&quot;: &quot;t1&quot;, &quot;user&quot;: &quot;satya&quot;},   # LangSmith grouping
+    &quot;tags&quot;: [&quot;chatbot&quot;, &quot;v1&quot;],
+    &quot;run_name&quot;: &quot;chat_turn&quot;,
+}
+# bot.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;hi&quot;)]}, config)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Group conversation turns</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">CONFIG = {
     &quot;configurable&quot;: {&quot;thread_id&quot;: thread_id},
     &quot;metadata&quot;: {&quot;thread_id&quot;: thread_id},
     &quot;run_name&quot;: &quot;chat_turn&quot;,
@@ -1240,7 +1666,41 @@ chatbot.invoke({&quot;messages&quot;: [HumanMessage(content=q)]}, config=CONFIG)
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Plan</dt><dd>Give the chatbot tools: web search (DuckDuckGo), calculator, stock price (Alpha Vantage API).</dd></div><div class="c"><dt>bind_tools</dt><dd><code>llm_with_tools = llm.bind_tools(tools)</code> so the LLM can request tools.</dd></div><div class="c"><dt>ToolNode</dt><dd>Prebuilt node that <b>executes the tool calls</b> in the last AIMessage and returns ToolMessages. Node name must be <code>"tools"</code> for <code>tools_condition</code>.</dd></div><div class="c"><dt>tools_condition</dt><dd>Prebuilt router: if the last AIMessage has <code>tool_calls</code> → go to <code>"tools"</code>, else → END.</dd></div><div class="c"><dt>The loop</dt><dd>chat_node → (tools_condition) → tools → back to chat_node → ... until no more tool calls. This is a <b>ReAct agent</b> built by hand.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Tool-calling chatbot (from your 11_Tools)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>llm.bind_tools(tools)</code></td><td>LLM knows the tools</td></tr><tr><td><code>ToolNode(tools)</code></td><td>node that runs tool calls</td></tr><tr><td><code>tools_condition</code></td><td>tool call? → &#x27;tools&#x27; else END</td></tr><tr><td><code>add_edge(&#x27;tools&#x27;, &#x27;chat&#x27;)</code></td><td>loop back with result</td></tr><tr><td><code>create_react_agent(llm, tools)</code></td><td>all of this prebuilt</td></tr></tbody></table><figure class="code"><figcaption><span>Tool agent graph</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langgraph.graph import StateGraph, START, MessagesState
+from langgraph.prebuilt import ToolNode, tools_condition
+from langchain_core.tools import tool
+
+@tool
+def multiply(a: int, b: int) -&gt; int:
+    &quot;&quot;&quot;Multiply two numbers.&quot;&quot;&quot;
+    return a * b
+
+tools = [multiply]
+llm_t = llm.bind_tools(tools)
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, lambda s: {&quot;messages&quot;: [llm_t.invoke(s[&quot;messages&quot;])]})
+g.add_node(&quot;tools&quot;, ToolNode(tools))
+g.add_edge(START, &quot;chat&quot;)
+g.add_conditional_edges(&quot;chat&quot;, tools_condition)
+g.add_edge(&quot;tools&quot;, &quot;chat&quot;)
+app = g.compile()
+print(app.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;What is 23*47?&quot;)]})[&quot;messages&quot;][-1].content)</code></pre></figure><figure class="code"><figcaption><span>Same thing, prebuilt</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langgraph.prebuilt import create_react_agent
+from langchain_core.tools import tool
+
+@tool
+def multiply(a: int, b: int) -&gt; int:
+    &quot;&quot;&quot;Multiply two numbers.&quot;&quot;&quot;
+    return a * b
+
+app = create_react_agent(llm, [multiply])        # chat + ToolNode + loop, done
+print(app.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;23*47?&quot;)]})[&quot;messages&quot;][-1].content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Tool-calling chatbot (from your 11_Tools)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
@@ -1284,7 +1744,31 @@ chatbot = g.compile(checkpointer=checkpointer)</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Problem with plain tools</dt><dd>Every app re-implements tools for GitHub, Slack, DBs... and they <b>break</b> when the external API changes. N apps × M services = lots of brittle glue.</dd></div><div class="c"><dt>MCP</dt><dd><b>Model Context Protocol</b> (by Anthropic): a standard way to expose tools/resources/prompts. The <b>server</b> owns the tools (maintained by the service provider), the <b>client</b> (your app) just connects and lists them. Like USB-C for AI tools.</dd></div><div class="c"><dt>Transports</dt><dd><code>stdio</code> = server runs as a local subprocess. <code>streamable_http</code> (or SSE) = remote server over HTTP.</dd></div><div class="c"><dt>Why async</dt><dd>MCP adapter libraries are <b>async-only</b> → nodes become <code>async def</code>, use <code>await llm.ainvoke()</code>, <code>await graph.ainvoke()</code>, <code>AsyncSqliteSaver</code>.</dd></div><div class="c"><dt>async basics</dt><dd><code>async def</code> = a function that may wait. <code>await</code> = wait here, let other work run meanwhile. <code>asyncio.run(main())</code> starts the event loop.</dd></div><div class="c"><dt>Streamlit + async</dt><dd>Streamlit is sync, so your backend runs a dedicated event loop in a background thread and submits coroutines with <code>asyncio.run_coroutine_threadsafe</code>.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>MCP server (FastMCP)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from fastmcp import FastMCP
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>FastMCP(name)</code></td><td>create MCP server</td></tr><tr><td><code>@mcp.tool()</code></td><td>expose a function</td></tr><tr><td><code>MultiServerMCPClient({...})</code></td><td>connect to servers</td></tr><tr><td><code>transport &#x27;stdio&#x27;</code></td><td>local subprocess server</td></tr><tr><td><code>transport &#x27;streamable_http&#x27; + url</code></td><td>remote server</td></tr><tr><td><code>await client.get_tools()</code></td><td>MCP tools → LangChain tools</td></tr><tr><td><code>async / await / asyncio.run</code></td><td>MCP is async-only</td></tr></tbody></table><figure class="code"><figcaption><span>server.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from fastmcp import FastMCP
+mcp = FastMCP(&quot;math&quot;)
+
+@mcp.tool()
+def add(a: int, b: int) -&gt; int:
+    &quot;&quot;&quot;Add two numbers.&quot;&quot;&quot;
+    return a + b
+
+if __name__ == &quot;__main__&quot;:
+    mcp.run()</code></pre></figure><figure class="code"><figcaption><span>client.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+import asyncio
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.prebuilt import create_react_agent
+
+async def main():
+    client = MultiServerMCPClient(
+        {&quot;math&quot;: {&quot;transport&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;python&quot;, &quot;args&quot;: [&quot;server.py&quot;]}})
+    tools = await client.get_tools()
+    agent = create_react_agent(llm, tools)
+    out = await agent.ainvoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;What is 41 + 1?&quot;)]})
+    print(out[&quot;messages&quot;][-1].content)
+
+asyncio.run(main())</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>MCP server (FastMCP)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from fastmcp import FastMCP
 mcp = FastMCP(&quot;calculator&quot;)
 
 @mcp.tool()
@@ -1333,7 +1817,25 @@ asyncio.run(main())</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Why RAG</dt><dd>Outdated knowledge, private documents, hallucination reduction. Give the LLM <b>relevant context</b> instead of pasting whole documents.</dd></div><div class="c"><dt>Approach</dt><dd>Make RAG a <b>tool</b>: <code>rag_tool(query)</code> retrieves chunks from the uploaded PDF. The agent decides when to use it (and still uses other tools like stock price).</dd></div><div class="c"><dt>Per-thread documents</dt><dd>Each chat thread can upload its own PDF → store a retriever per thread in a dict <code>{thread_id: retriever}</code>; pass the thread_id to the tool.</dd></div><div class="c"><dt>Ingestion</dt><dd>Uploaded bytes → temp file → PyPDFLoader → RecursiveCharacterTextSplitter → FAISS.from_documents → as_retriever.</dd></div><div class="c"><dt>Agentic RAG</dt><dd>Retrieval as a tool the agent <b>chooses</b> to call (vs. always retrieving in a fixed chain).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>RAG as a tool</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.document_loaders import PyPDFLoader
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>@tool rag_tool(query)</code></td><td>retrieval as a tool</td></tr><tr><td><code>docstring</code></td><td>when LLM should use it</td></tr><tr><td><code>retriever.invoke(query)</code></td><td>fetch chunks</td></tr><tr><td><code>agent decides</code></td><td>retrieve only if needed</td></tr></tbody></table><figure class="code"><figcaption><span>Agentic RAG in ~15 lines</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.tools import tool
+from langgraph.prebuilt import create_react_agent
+
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+retriever = FAISS.from_texts([&quot;Leave policy: 24 paid leaves per year.&quot;,
+                              &quot;WFH allowed on Fridays.&quot;], emb).as_retriever()
+
+@tool
+def company_policy(query: str) -&gt; str:
+    &quot;&quot;&quot;Search company HR policies.&quot;&quot;&quot;
+    return &quot;\n&quot;.join(d.page_content for d in retriever.invoke(query))
+
+agent = create_react_agent(llm, [company_policy])
+print(agent.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;How many paid leaves do I get?&quot;)]})[&quot;messages&quot;][-1].content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>RAG as a tool</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 
@@ -1361,7 +1863,27 @@ tools = [rag_tool, search_tool, calculator]     # then same ToolNode graph as be
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>HITL</dt><dd>Pausing the agent so a <b>human can approve, edit, or reject</b> before it continues.</dd></div><div class="c"><dt>Why</dt><dd>Accuracy, <b>accountability</b>, safety for irreversible actions (send money, emails, delete data, buy stocks), compliance, trust.</dd></div><div class="c"><dt>Patterns</dt><dd>Approve/reject an action · edit state/tool args · review a tool call · validate human input · multi-turn clarification.</dd></div><div class="c"><dt>interrupt()</dt><dd>Call <code>interrupt(payload)</code> inside a node → graph <b>pauses</b>, state is saved, the payload shows up in <code>result["__interrupt__"]</code>.</dd></div><div class="c"><dt>Command(resume=...)</dt><dd>Resume by invoking with <code>Command(resume=value)</code> on the <b>same thread</b>; <code>interrupt()</code> returns that value and the node continues (the node re-runs from its start).</dd></div><div class="c"><dt>Requirement</dt><dd>A <b>checkpointer</b> is mandatory (state must be saved while waiting).</dd></div><div class="c"><dt>Tool-chatbot example</dt><dd>Ask approval inside a sensitive tool (e.g. <code>purchase_stock</code>) before executing.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Approve before answering (from your 14_hitl)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>interrupt(payload)</code></td><td>pause + send payload to user</td></tr><tr><td><code>result[&#x27;__interrupt__&#x27;]</code></td><td>see why it paused</td></tr><tr><td><code>Command(resume=value)</code></td><td>continue with human answer</td></tr><tr><td><code>checkpointer + same thread_id</code></td><td>required to resume</td></tr></tbody></table><figure class="code"><figcaption><span>Pause for approval (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langgraph.types import interrupt, Command
+from langgraph.checkpoint.memory import InMemorySaver
+
+class S(TypedDict):
+    amount: int
+    status: str
+
+def pay(s):
+    ok = interrupt(f&quot;Approve payment of ₹{s[&#x27;amount&#x27;]}? (yes/no)&quot;)
+    return {&quot;status&quot;: &quot;paid&quot; if ok == &quot;yes&quot; else &quot;cancelled&quot;}
+
+g = StateGraph(S)
+g.add_node(&quot;pay&quot;, pay); g.add_edge(START, &quot;pay&quot;); g.add_edge(&quot;pay&quot;, END)
+app = g.compile(checkpointer=InMemorySaver())
+cfg = {&quot;configurable&quot;: {&quot;thread_id&quot;: &quot;1&quot;}}
+
+r = app.invoke({&quot;amount&quot;: 500}, cfg)
+print(r[&quot;__interrupt__&quot;][0].value)               # question for human
+print(app.invoke(Command(resume=&quot;yes&quot;), cfg))    # {&#x27;amount&#x27;: 500, &#x27;status&#x27;: &#x27;paid&#x27;}</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Approve before answering (from your 14_hitl)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
@@ -1405,7 +1927,30 @@ print(final[&quot;messages&quot;][-1].content)</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Subgraph</dt><dd>A compiled graph used as a <b>node inside another graph</b>.</dd></div><div class="c"><dt>Why</dt><dd>Complex workflows get huge; subgraphs give <b>modularity, reusability, maintainability</b>, team ownership, and are the base of <b>multi-agent</b> systems (each agent = a subgraph).</dd></div><div class="c"><dt>Way 1 — different state (isolated)</dt><dd>Subgraph has its own state schema. Call it <b>inside a node function</b>: map parent state → subgraph input, invoke, map output back.</dd></div><div class="c"><dt>Way 2 — shared state</dt><dd>Subgraph uses the <b>same keys</b> as the parent → add the compiled subgraph <b>directly as a node</b>: <code>add_node("translate", subgraph)</code>.</dd></div><div class="c"><dt>Example</dt><dd>Parent: answer the question in English → subgraph: translate to Hindi.</dd></div><div class="c"><dt>Persistence</dt><dd>Give the checkpointer only to the parent; it propagates to subgraphs. Subgraph runs appear nested in LangSmith.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Both ways</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python"># Way 1: isolated state -&gt; call inside a node
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>compiled graph as node</code></td><td>shared state keys</td></tr><tr><td><code>subgraph.invoke inside a node</code></td><td>different state keys</td></tr><tr><td><code>map in / map out</code></td><td>parent keys ↔ subgraph keys</td></tr></tbody></table><figure class="code"><figcaption><span>Subgraph (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+# child graph: its own state
+class Child(TypedDict):
+    text: str
+    out: str
+c = StateGraph(Child)
+c.add_node(&quot;upper&quot;, lambda s: {&quot;out&quot;: s[&quot;text&quot;].upper()})
+c.add_edge(START, &quot;upper&quot;); c.add_edge(&quot;upper&quot;, END)
+child = c.compile()
+
+# parent graph
+class Parent(TypedDict):
+    question: str
+    answer: str
+
+def call_child(s):                                  # different keys -&gt; map them
+    return {&quot;answer&quot;: child.invoke({&quot;text&quot;: s[&quot;question&quot;]})[&quot;out&quot;]}
+
+p = StateGraph(Parent)
+p.add_node(&quot;child&quot;, call_child)
+p.add_edge(START, &quot;child&quot;); p.add_edge(&quot;child&quot;, END)
+print(p.compile().invoke({&quot;question&quot;: &quot;hello&quot;}))   # answer: HELLO</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Both ways</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python"># Way 1: isolated state -&gt; call inside a node
 class SubState(TypedDict):
     input_text: str
     translated_text: str
@@ -1444,7 +1989,31 @@ parent.add_node(&quot;translate&quot;, sub.compile())</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>STM = checkpointer + thread</dt><dd>Same thread_id → history is reloaded every turn; new thread_id → fresh memory.</dd></div><div class="c"><dt>Production persistence</dt><dd>InMemorySaver dies on restart → use <b>PostgresSaver</b> (Postgres via Docker). Call <code>checkpointer.setup()</code> once to create tables.</dd></div><div class="c"><dt>Context overflow</dt><dd>Long chats exceed the context window / cost too much. 3 strategies:</dd></div><div class="c"><dt>1. Trimming</dt><dd><code>trim_messages(strategy="last", max_tokens=N)</code> → send only the latest messages that fit. Simple, but <b>old info is lost</b> (e.g. the user's name).</dd></div><div class="c"><dt>2. Deletion</dt><dd>Permanently remove old messages from state with <code>RemoveMessage(id=...)</code> (works because of <code>add_messages</code> reducer).</dd></div><div class="c"><dt>3. Summarization</dt><dd>When messages exceed a limit, an LLM <b>summarises</b> old messages into a <code>summary</code> key, delete them, keep the last few verbatim; inject the summary as a system message. Keeps the gist with few tokens.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Postgres checkpointer</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python"># docker-compose: postgres:16, port 5442:5432
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>trim_messages(strategy=&#x27;last&#x27;, max_tokens=)</code></td><td>send only recent msgs</td></tr><tr><td><code>count_tokens_approximately</code></td><td>cheap token counter</td></tr><tr><td><code>RemoveMessage(id=m.id)</code></td><td>delete msg from state</td></tr><tr><td><code>summary key + system msg</code></td><td>compressed old history</td></tr><tr><td><code>PostgresSaver.from_conn_string(uri)</code></td><td>production checkpointer</td></tr><tr><td><code>checkpointer.setup()</code></td><td>create tables (first time)</td></tr></tbody></table><figure class="code"><figcaption><span>Trim before calling the LLM</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import InMemorySaver
+from langchain_core.messages.utils import trim_messages, count_tokens_approximately
+
+def chat(s: MessagesState):
+    recent = trim_messages(s[&quot;messages&quot;], strategy=&quot;last&quot;, max_tokens=100,
+                           token_counter=count_tokens_approximately)
+    return {&quot;messages&quot;: [llm.invoke(recent)]}
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, chat); g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+bot = g.compile(checkpointer=InMemorySaver())</code></pre></figure><figure class="code"><figcaption><span>Delete old messages (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END, MessagesState
+from langchain_core.messages import RemoveMessage, AIMessage
+
+def reply(s):   return {&quot;messages&quot;: [AIMessage(&quot;ok&quot;)]}
+def cleanup(s): return {&quot;messages&quot;: [RemoveMessage(id=m.id) for m in s[&quot;messages&quot;][:-2]]}
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;reply&quot;, reply); g.add_node(&quot;cleanup&quot;, cleanup)
+g.add_edge(START, &quot;reply&quot;); g.add_edge(&quot;reply&quot;, &quot;cleanup&quot;); g.add_edge(&quot;cleanup&quot;, END)
+out = g.compile().invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;a&quot;), (&quot;user&quot;, &quot;b&quot;), (&quot;user&quot;, &quot;c&quot;)]})
+print([m.content for m in out[&quot;messages&quot;]])      # only last 2 kept</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Postgres checkpointer</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python"># docker-compose: postgres:16, port 5442:5432
 from langgraph.checkpoint.postgres import PostgresSaver
 DB_URI = &quot;postgresql://postgres:postgres@localhost:5442/postgres&quot;
 
@@ -1490,7 +2059,36 @@ builder.add_conditional_edges(&quot;chat&quot;, lambda s: len(s[&quot;messages&q
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Store</dt><dd>LangGraph's LTM component (separate from the checkpointer). Saves JSON <b>items</b> under a <b>namespace</b> tuple + <b>key</b>: <code>store.put(("user", "u1"), "1", {"data": ...})</code>.</dd></div><div class="c"><dt>Namespaces</dt><dd>Like folders: <code>("user", user_id, "details")</code> keeps each user's memories separate and shared across all their threads.</dd></div><div class="c"><dt>Operations</dt><dd><code>put</code>, <code>get(ns, key)</code>, <code>search(ns)</code> (all), <code>search(ns, query=..., limit=k)</code> (semantic), <code>delete</code>.</dd></div><div class="c"><dt>Semantic search</dt><dd>Create the store with an embedding index: <code>InMemoryStore(index={"embed": emb, "dims": ...})</code> → search memories by meaning.</dd></div><div class="c"><dt>Using it in nodes</dt><dd><code>graph.compile(store=store)</code>; node signature <code>def node(state, config, *, store: BaseStore)</code>; get <code>user_id</code> from <code>config["configurable"]</code>.</dd></div><div class="c"><dt>Memory extraction</dt><dd>A <b>remember</b> node: LLM with structured output (<code>MemoryDecision{should_write, memories[{text, is_new}]}</code>) reads the latest message + existing memories and saves only new, atomic facts.</dd></div><div class="c"><dt>Chat node</dt><dd>Loads the user's memories → puts them in the system prompt → personalised replies.</dd></div><div class="c"><dt>Production</dt><dd><code>PostgresStore</code> instead of <code>InMemoryStore</code> (<code>store.setup()</code> once).</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Store basics</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.store.memory import InMemoryStore
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>InMemoryStore() / PostgresStore</code></td><td>long-term memory DB</td></tr><tr><td><code>namespace tuple</code></td><td>folder, e.g. (&#x27;user&#x27;, &#x27;u1&#x27;)</td></tr><tr><td><code>store.put(ns, key, dict)</code></td><td>save</td></tr><tr><td><code>store.get(ns, key)</code></td><td>read one</td></tr><tr><td><code>store.search(ns, query=, limit=)</code></td><td>find (semantic if indexed)</td></tr><tr><td><code>compile(store=store)</code></td><td>give store to nodes</td></tr><tr><td><code>node(state, config, *, store)</code></td><td>access store in node</td></tr></tbody></table><figure class="code"><figcaption><span>Store basics (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.store.memory import InMemoryStore
+
+store = InMemoryStore()
+ns = (&quot;user&quot;, &quot;satya&quot;)
+store.put(ns, &quot;food&quot;, {&quot;data&quot;: &quot;likes biryani&quot;})
+store.put(ns, &quot;lang&quot;, {&quot;data&quot;: &quot;codes in Python&quot;})
+
+print(store.get(ns, &quot;food&quot;).value)              # {&#x27;data&#x27;: &#x27;likes biryani&#x27;}
+for item in store.search(ns):
+    print(item.key, item.value)</code></pre></figure><figure class="code"><figcaption><span>Use memory inside a graph</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.store.memory import InMemoryStore
+from langgraph.store.base import BaseStore
+from langchain_core.runnables import RunnableConfig
+
+store = InMemoryStore()
+store.put((&quot;user&quot;, &quot;u1&quot;), &quot;1&quot;, {&quot;data&quot;: &quot;User&#x27;s name is Satya, preparing for interviews&quot;})
+
+def chat(s: MessagesState, config: RunnableConfig, *, store: BaseStore):
+    uid = config[&quot;configurable&quot;][&quot;user_id&quot;]
+    facts = &quot;\n&quot;.join(i.value[&quot;data&quot;] for i in store.search((&quot;user&quot;, uid)))
+    return {&quot;messages&quot;: [llm.invoke([(&quot;system&quot;, f&quot;Known about user:\n{facts}&quot;)] + s[&quot;messages&quot;])]}
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;chat&quot;, chat); g.add_edge(START, &quot;chat&quot;); g.add_edge(&quot;chat&quot;, END)
+app = g.compile(store=store)
+print(app.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;Who am I?&quot;)]},
+                 {&quot;configurable&quot;: {&quot;user_id&quot;: &quot;u1&quot;}})[&quot;messages&quot;][-1].content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Store basics</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.store.memory import InMemoryStore
 
 store = InMemoryStore(index={&quot;embed&quot;: emb, &quot;dims&quot;: 768})     # index optional
 ns = (&quot;user&quot;, &quot;u1&quot;)
@@ -1534,7 +2132,23 @@ graph.invoke({&quot;messages&quot;: [...]}, {&quot;configurable&quot;: {&quot;us
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Planning agent</dt><dd>Instead of writing the blog in one shot, it first <b>plans</b> (outline with sections, goals, word counts), then executes each part, then assembles.</dd></div><div class="c"><dt>Orchestrator–worker pattern</dt><dd><b>Orchestrator</b> makes a plan (structured output: list of tasks). <b>Workers</b> write each section <b>in parallel</b>. <b>Reducer/synthesizer</b> merges sections into the final blog.</dd></div><div class="c"><dt>Send API</dt><dd>Dynamic fan-out: the number of workers is unknown until runtime → a conditional edge returns <code>[Send("worker", payload) for each task]</code>.</dd></div><div class="c"><dt>Stage 2 — research</dt><dd>A <b>router</b> decides if the topic needs fresh info → <b>Tavily</b> web search → research-aware planning.</dd></div><div class="c"><dt>Stage 3 — images</dt><dd>Decide where images help, generate them, and place them with reducer logic.</dd></div><div class="c"><dt>Stage 4 — UI</dt><dd>Streamlit frontend to enter a topic and view/download the blog.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Orchestrator–worker with Send</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>Send(node, payload)</code></td><td>start one worker with its own input</td></tr><tr><td><code>return [Send(...) for ...]</code></td><td>dynamic number of workers</td></tr><tr><td><code>add_conditional_edges(src, fn, [&#x27;worker&#x27;])</code></td><td>where Sends can go</td></tr><tr><td><code>operator.add on results</code></td><td>collect worker outputs</td></tr></tbody></table><figure class="code"><figcaption><span>Send API (no LLM)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import operator
+from typing import TypedDict, Annotated
+from langgraph.graph import StateGraph, START, END
+from langgraph.types import Send
+
+class S(TypedDict):
+    words: list[str]
+    results: Annotated[list[str], operator.add]
+
+def fan_out(s):
+    return [Send(&quot;worker&quot;, {&quot;w&quot;: w}) for w in s[&quot;words&quot;]]     # one worker per word
+
+g = StateGraph(S)
+g.add_node(&quot;worker&quot;, lambda p: {&quot;results&quot;: [p[&quot;w&quot;].upper()]})
+g.add_conditional_edges(START, fan_out, [&quot;worker&quot;])
+g.add_edge(&quot;worker&quot;, END)
+print(g.compile().invoke({&quot;words&quot;: [&quot;rag&quot;, &quot;agent&quot;, &quot;graph&quot;], &quot;results&quot;: []}))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Orchestrator–worker with Send</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
@@ -1589,7 +2203,38 @@ app = g.compile()</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Problem: blind trust</dt><dd>Traditional RAG always trusts whatever the retriever returns. For out-of-distribution questions (e.g. recent AI news against an ML-books DB), it retrieves irrelevant chunks and the LLM <b>hallucinates</b>.</dd></div><div class="c"><dt>CRAG idea</dt><dd>Add a <b>retrieval evaluator</b> that grades retrieved docs, then corrects the retrieval before generating.</dd></div><div class="c"><dt>3 cases</dt><dd><b>Correct</b> (score above upper threshold) → use docs after <b>knowledge refinement</b>. <b>Incorrect</b> (all below lower threshold) → discard, do <b>web search</b>. <b>Ambiguous</b> → combine refined docs + web search.</dd></div><div class="c"><dt>Knowledge refinement</dt><dd>Split docs into small <b>strips</b> (sentences), keep only strips the grader marks relevant, recompose → less noise.</dd></div><div class="c"><dt>Query rewriting</dt><dd>Before web search, rewrite the question into a good search query.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>CRAG graph skeleton</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">class CragState(TypedDict):
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>grade docs</code></td><td>is each doc relevant?</td></tr><tr><td><code>CORRECT</code></td><td>use docs (refined)</td></tr><tr><td><code>INCORRECT</code></td><td>web search instead</td></tr><tr><td><code>AMBIGUOUS</code></td><td>docs + web search</td></tr><tr><td><code>rewrite query</code></td><td>better search query</td></tr></tbody></table><figure class="code"><figcaption><span>Mini CRAG</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.tools import DuckDuckGoSearchRun
+
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+retriever = FAISS.from_texts([&quot;Bias is error from wrong assumptions.&quot;,
+                              &quot;Variance is error from sensitivity to data.&quot;], emb).as_retriever(search_kwargs={&quot;k&quot;: 2})
+
+class S(TypedDict):
+    q: str
+    context: str
+    answer: str
+
+def retrieve_and_grade(s):
+    good = [d.page_content for d in retriever.invoke(s[&quot;q&quot;])
+            if &quot;yes&quot; in llm.invoke(f&quot;Is this relevant to &#x27;{s[&#x27;q&#x27;]}&#x27;? yes/no\n{d.page_content}&quot;).content.lower()]
+    return {&quot;context&quot;: &quot;\n&quot;.join(good)}
+
+def web(s):      return {&quot;context&quot;: DuckDuckGoSearchRun().invoke(s[&quot;q&quot;])}
+def generate(s): return {&quot;answer&quot;: llm.invoke(f&quot;Context:\n{s[&#x27;context&#x27;]}\nQ: {s[&#x27;q&#x27;]}&quot;).content}
+
+g = StateGraph(S)
+g.add_node(&quot;retrieve&quot;, retrieve_and_grade); g.add_node(&quot;web&quot;, web); g.add_node(&quot;generate&quot;, generate)
+g.add_edge(START, &quot;retrieve&quot;)
+g.add_conditional_edges(&quot;retrieve&quot;, lambda s: &quot;generate&quot; if s[&quot;context&quot;] else &quot;web&quot;)  # no good docs -&gt; web
+g.add_edge(&quot;web&quot;, &quot;generate&quot;); g.add_edge(&quot;generate&quot;, END)
+print(g.compile().invoke({&quot;q&quot;: &quot;What is variance in ML?&quot;})[&quot;answer&quot;])</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>CRAG graph skeleton</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">class CragState(TypedDict):
     question: str
     docs: list
     verdict: str          # CORRECT / INCORRECT / AMBIGUOUS
@@ -1629,7 +2274,38 @@ g.add_conditional_edges(&quot;grade&quot;, lambda s: s[&quot;verdict&quot;],
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>3 problems of traditional RAG</dt><dd>1) <b>Unnecessary retrieval</b> (retrieves even for "hi" or general knowledge), 2) <b>blind trust</b> in documents, 3) <b>no answer verification</b>.</dd></div><div class="c"><dt>Self-RAG</dt><dd>Self-reflective RAG: the LLM <b>critiques itself</b> at each step.</dd></div><div class="c"><dt>4 questions it asks</dt><dd>1) Do I need retrieval? 2) Are the retrieved docs relevant? 3) Is my answer <b>supported</b> by the docs (no hallucination)? 4) Is the answer <b>useful</b> for the question?</dd></div><div class="c"><dt>Flow</dt><dd>decide_retrieval → (no: answer directly) / (yes: retrieve → filter relevant docs → generate) → check support → if not supported: <b>revise</b> answer (loop, capped) → check usefulness → if not useful: <b>rewrite query</b> and retrieve again.</dd></div><div class="c"><dt>vs CRAG</dt><dd>CRAG focuses on fixing <b>retrieval</b> (fallback to web). Self-RAG adds <b>generation checks</b> (hallucination + usefulness) and decides whether to retrieve at all.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Self-RAG routing skeleton</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">class YesNo(BaseModel):
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>need retrieval?</code></td><td>skip RAG for simple questions</td></tr><tr><td><code>relevant?</code></td><td>filter docs</td></tr><tr><td><code>supported?</code></td><td>answer grounded in docs</td></tr><tr><td><code>useful?</code></td><td>answer solves the question</td></tr><tr><td><code>loop caps</code></td><td>max revisions / rewrites</td></tr></tbody></table><figure class="code"><figcaption><span>Mini Self-RAG</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+retriever = FAISS.from_texts([&quot;Our refund window is 7 days.&quot;, &quot;Shipping is free above ₹499.&quot;], emb).as_retriever()
+yes = lambda prompt: &quot;yes&quot; in llm.invoke(prompt + &quot;\nAnswer yes or no only.&quot;).content.lower()
+
+class S(TypedDict):
+    q: str
+    context: str
+    answer: str
+    tries: int
+
+def decide(s):   return &quot;retrieve&quot; if yes(f&quot;Does &#x27;{s[&#x27;q&#x27;]}&#x27; need company documents?&quot;) else &quot;generate&quot;
+def retrieve(s): return {&quot;context&quot;: &quot;\n&quot;.join(d.page_content for d in retriever.invoke(s[&quot;q&quot;]))}
+def generate(s): return {&quot;answer&quot;: llm.invoke(f&quot;Context:\n{s.get(&#x27;context&#x27;,&#x27;&#x27;)}\nQ: {s[&#x27;q&#x27;]}&quot;).content,
+                         &quot;tries&quot;: s[&quot;tries&quot;] + 1}
+def supported(s):
+    if not s.get(&quot;context&quot;) or s[&quot;tries&quot;] &gt;= 2: return &quot;end&quot;
+    return &quot;end&quot; if yes(f&quot;Is this answer fully supported by context?\n{s[&#x27;context&#x27;]}\n{s[&#x27;answer&#x27;]}&quot;) else &quot;retry&quot;
+
+g = StateGraph(S)
+g.add_node(&quot;retrieve&quot;, retrieve); g.add_node(&quot;generate&quot;, generate)
+g.add_conditional_edges(START, decide)
+g.add_edge(&quot;retrieve&quot;, &quot;generate&quot;)
+g.add_conditional_edges(&quot;generate&quot;, supported, {&quot;end&quot;: END, &quot;retry&quot;: &quot;generate&quot;})
+print(g.compile().invoke({&quot;q&quot;: &quot;How many days for refund?&quot;, &quot;tries&quot;: 0})[&quot;answer&quot;])</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Self-RAG routing skeleton</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">class YesNo(BaseModel):
     decision: Literal[&quot;yes&quot;, &quot;no&quot;]
 judge = llm.with_structured_output(YesNo)
 
@@ -1663,7 +2339,29 @@ g.add_edge(&quot;rewrite_query&quot;, &quot;retrieve&quot;)</code></pre></figure
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Why evaluate agents</dt><dd>Agents are non-deterministic, multi-step and use tools — a correct-looking answer can come from a wrong path. You need tests before shipping and monitoring after.</dd></div><div class="c"><dt>1. Final answer correctness</dt><dd>Does the answer contain/match the expected result? (exact match, keywords, or LLM-as-judge for open answers).</dd></div><div class="c"><dt>2. Tool selection</dt><dd>Did it call the <b>right tools</b> (compare with expected set, e.g. <code>Counter(used) == Counter(expected)</code>)?</dd></div><div class="c"><dt>3. Trajectory</dt><dd>Did it call them in the <b>right order</b> (the full path of steps)? Strict match or subset/unordered match.</dd></div><div class="c"><dt>4. Latency</dt><dd>Correct but too slow = bad production agent. Track per test and p50/p95 in production.</dd></div><div class="c"><dt>5. Safety & reliability</dt><dd>Refuses harmful requests, no forbidden content, handles unknown/invalid inputs gracefully ("I don't know" instead of inventing).</dd></div><div class="c"><dt>Eval dataset</dt><dd>List of test cases: question, expected answer keywords, expected tools, expected trajectory, max latency, type (normal / safety / reliability).</dd></div><div class="c"><dt>LLM-as-a-judge</dt><dd>Use an LLM with a rubric (correct, relevant, helpful, no invented facts) to grade open-ended answers. Watch out for judge bias; keep the rubric strict and use a strong model.</dd></div><div class="c"><dt>Offline vs online</dt><dd><b>Offline</b> (before deploy): regression tests, known-answer datasets, tool/trajectory tests, prompt-injection suites, latency benchmarks. <b>Online</b> (after deploy): production traces, user feedback, task success, latency percentiles, tool failure rate, safety incidents. Mature teams do both.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Mini evaluation harness</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import time
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>test case</code></td><td>question + expected answer/tools</td></tr><tr><td><code>answer check</code></td><td>contains expected?</td></tr><tr><td><code>tool check</code></td><td>right tools used?</td></tr><tr><td><code>trajectory</code></td><td>right order of tools</td></tr><tr><td><code>latency</code></td><td>time.perf_counter() difference</td></tr><tr><td><code>LLM-as-judge</code></td><td>LLM grades open answers</td></tr></tbody></table><figure class="code"><figcaption><span>Tiny agent test</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+import time
+from langchain.agents import create_agent
+from langchain_core.tools import tool
+
+@tool
+def add(a: int, b: int) -&gt; int:
+    &quot;&quot;&quot;Add two numbers.&quot;&quot;&quot;
+    return a + b
+
+agent = create_agent(model=llm, tools=[add])
+
+tests = [{&quot;q&quot;: &quot;What is 20 + 22?&quot;, &quot;expect&quot;: &quot;42&quot;, &quot;tools&quot;: [&quot;add&quot;]}]
+for t in tests:
+    start = time.perf_counter()
+    out = agent.invoke({&quot;messages&quot;: [(&quot;user&quot;, t[&quot;q&quot;])]})
+    secs = time.perf_counter() - start
+    used = [c[&quot;name&quot;] for m in out[&quot;messages&quot;] for c in getattr(m, &quot;tool_calls&quot;, [])]
+    answer = out[&quot;messages&quot;][-1].content
+    print({&quot;answer_ok&quot;: t[&quot;expect&quot;] in str(answer), &quot;tools_ok&quot;: used == t[&quot;tools&quot;],
+           &quot;fast&quot;: secs &lt; 10})</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Mini evaluation harness</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import time
 from collections import Counter
 
 def run_agent(q):
@@ -1702,7 +2400,33 @@ Return: VERDICT: PASS or FAIL / REASON: &lt;one line&gt;&quot;&quot;&quot;
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Guardrails</dt><dd>Checks that keep an agent safe and on-policy: <b>input guardrails</b> run before the agent (block jailbreaks, PII, off-topic), <b>output guardrails</b> run after (block unsafe/incorrect content, leaked secrets).</dd></div><div class="c"><dt>Use cases</dt><dd>PII protection, prompt-injection defence, blocking harmful content, enforcing business rules, compliance (health/finance), approval for risky tool calls.</dd></div><div class="c"><dt>Deterministic guardrails</dt><dd>Rules: regex, keyword lists, allow/deny lists, length limits. <b>Fast, cheap, predictable</b>, but miss paraphrases.</dd></div><div class="c"><dt>Model-based guardrails</dt><dd>An LLM/classifier judges content (SAFE/UNSAFE). <b>Understands meaning</b>, but slower, costs money, can be wrong. Best: combine both.</dd></div><div class="c"><dt>Middleware (LangChain 1.x)</dt><dd><code>create_agent(..., middleware=[...])</code>. Hooks: <code>before_agent</code>, <code>before_model</code>, <code>after_model</code>, <code>after_agent</code> (and wrap tool calls).</dd></div><div class="c"><dt>PIIMiddleware</dt><dd>Detects email, credit_card, ip, mac_address, url (or custom regex). Strategies: <b>redact</b> (replace with [REDACTED_EMAIL]), <b>mask</b> (****-5100), <b>hash</b>, <b>block</b> (raise error). <code>apply_to_input</code> / <code>apply_to_output</code>.</dd></div><div class="c"><dt>HumanInTheLoopMiddleware</dt><dd><code>interrupt_on={"send_email": True, "search": False}</code> → pauses before chosen tools; resume with <code>Command(resume={"decisions": [{"type": "approve"}]})</code> or <code>reject</code>/<code>edit</code>. Needs a checkpointer.</dd></div><div class="c"><dt>Custom middleware</dt><dd>Subclass <code>AgentMiddleware</code>; in <code>before_agent</code> check the input and return <code>{"messages": [...], "jump_to": "end"}</code> to stop early (decorate with <code>@hook_config(can_jump_to=["end"])</code>). <code>after_agent</code> for output checks.</dd></div><div class="c"><dt>Layered guardrails</dt><dd>Stack middlewares in order: content filter → PII on input → HITL for risky tools → PII on output → safety check on output. (Healthcare bot example: block emergencies/diagnosis requests, add disclaimers.)</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Deterministic vs model-based</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import re
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>before_agent / after_agent</code></td><td>check input / output</td></tr><tr><td><code>PIIMiddleware(type, strategy=)</code></td><td>find personal data</td></tr><tr><td><code>strategy redact / mask / hash / block</code></td><td>remove / hide / hash / stop</td></tr><tr><td><code>apply_to_input / apply_to_output</code></td><td>where to check</td></tr><tr><td><code>HumanInTheLoopMiddleware(interrupt_on=)</code></td><td>approval before tools</td></tr><tr><td><code>jump_to: &#x27;end&#x27;</code></td><td>stop the agent early</td></tr></tbody></table><figure class="code"><figcaption><span>Simplest guardrail: wrap the call</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+import re
+
+BLOCK = re.compile(r&quot;\b(hack|password|malware)\b&quot;, re.I)
+
+def safe_ask(q: str) -&gt; str:
+    if BLOCK.search(q):                                  # input guardrail
+        return &quot;Sorry, I can&#x27;t help with that.&quot;
+    answer = llm.invoke(q).content
+    answer = re.sub(r&quot;\S+@\S+&quot;, &quot;[EMAIL]&quot;, answer)       # output guardrail (redact)
+    return answer
+
+print(safe_ask(&quot;How to hack wifi?&quot;))
+print(safe_ask(&quot;Write a sample support email with an email address&quot;))</code></pre></figure><figure class="code"><figcaption><span>Built-in PII middleware</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from langchain.agents import create_agent
+from langchain.agents.middleware import PIIMiddleware
+
+agent = create_agent(model=llm, tools=[], middleware=[
+    PIIMiddleware(&quot;email&quot;, strategy=&quot;redact&quot;, apply_to_input=True),
+    PIIMiddleware(&quot;credit_card&quot;, strategy=&quot;mask&quot;, apply_to_input=True),
+])
+out = agent.invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;My mail is a@b.com, card 5105-1051-0510-5100&quot;)]})
+print(out[&quot;messages&quot;][0].content)     # PII hidden before reaching the LLM</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Deterministic vs model-based</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">import re
 def deterministic_guardrail(text: str) -&gt; bool:          # True = block
     return bool(re.search(r&quot;\b(hack|exploit|malware)\b&quot;, text, re.I))
 
@@ -1765,7 +2489,20 @@ class ContentFilterMiddleware(AgentMiddleware):
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Chunking trade-off</dt><dd>Small chunks = precise matches but lose context. Large chunks = more context but noisy embeddings and more tokens. Typical: 500–1000 tokens, 10–20% overlap; tune with evals.</dd></div><div class="c"><dt>Hybrid search</dt><dd>Combine <b>keyword (BM25/sparse)</b> + <b>semantic (dense)</b>. BM25 catches exact terms (IDs, names, error codes); dense catches meaning. Merge rankings with <b>Reciprocal Rank Fusion (RRF)</b>.</dd></div><div class="c"><dt>Re-ranking</dt><dd>Retrieve many (e.g. top 20) cheaply with a <b>bi-encoder</b> (query and doc embedded separately), then re-order with a <b>cross-encoder</b> (reads query+doc together — more accurate, slower) or Cohere Rerank; keep top 3–5.</dd></div><div class="c"><dt>Query transformation</dt><dd><b>Multi-query</b> (several phrasings), <b>HyDE</b> (LLM writes a hypothetical answer, embed that instead of the question), <b>step-back</b> (ask a more general question), <b>decomposition</b> (split complex question into sub-questions).</dd></div><div class="c"><dt>Parent-document retrieval</dt><dd>Search on small child chunks (precise), return their larger parent chunk (context).</dd></div><div class="c"><dt>Self-query / metadata filtering</dt><dd>LLM turns "papers after 2022 about RAG" into a semantic query + a metadata filter (<code>year &gt; 2022</code>).</dd></div><div class="c"><dt>ANN indexes</dt><dd>Exact search is O(N). Vector DBs use <b>Approximate Nearest Neighbour</b>: <b>HNSW</b> (graph layers, fast, memory-heavy, most common), <b>IVF</b> (cluster then search nearest clusters), <b>PQ</b> (compress vectors).</dd></div><div class="c"><dt>GraphRAG</dt><dd>Build a knowledge graph of entities/relations from documents; good for "connect the dots" and global summary questions where chunk retrieval fails.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Hybrid search (BM25 + vectors)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.retrievers import BM25Retriever        # pip install rank_bm25
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>BM25Retriever</code></td><td>keyword search</td></tr><tr><td><code>EnsembleRetriever(retrievers, weights)</code></td><td>combine (hybrid)</td></tr><tr><td><code>CrossEncoder.predict(pairs)</code></td><td>re-rank score</td></tr><tr><td><code>HyDE</code></td><td>search with a fake answer</td></tr></tbody></table><figure class="code"><figcaption><span>Hybrid = keyword + vector</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.retrievers import BM25Retriever
+from langchain_classic.retrievers import EnsembleRetriever
+
+texts = [&quot;Error E42 means payment timeout&quot;, &quot;Payments fail when the bank is slow&quot;,
+         &quot;Refunds take 7 days&quot;]
+emb = GoogleGenerativeAIEmbeddings(model=&quot;models/gemini-embedding-001&quot;)
+
+hybrid = EnsembleRetriever(
+    retrievers=[BM25Retriever.from_texts(texts), FAISS.from_texts(texts, emb).as_retriever()],
+    weights=[0.5, 0.5])
+print(hybrid.invoke(&quot;E42&quot;))</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Hybrid search (BM25 + vectors)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_community.retrievers import BM25Retriever        # pip install rank_bm25
 from langchain_classic.retrievers import EnsembleRetriever
 
 bm25 = BM25Retriever.from_documents(chunks); bm25.k = 4
@@ -1789,7 +2526,7 @@ docs = vs.similarity_search(hypo, k=4)        # search with the fake answer</cod
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Evaluate retrieval and generation separately</dt><dd>Bad answer? Either the right chunk wasn't retrieved (retrieval problem) or it was retrieved but the LLM ignored/misused it (generation problem).</dd></div><div class="c"><dt>Retrieval metrics</dt><dd><b>Hit rate / Recall@k</b> (is the right chunk in the top k?), <b>MRR</b> (how high is the first correct one), <b>nDCG</b> (rank-aware relevance), <b>Precision@k</b>.</dd></div><div class="c"><dt>RAGAS: Faithfulness</dt><dd>Are all claims in the answer supported by the retrieved context? (hallucination check)</dd></div><div class="c"><dt>RAGAS: Answer relevancy</dt><dd>Does the answer actually address the question?</dd></div><div class="c"><dt>RAGAS: Context precision</dt><dd>Are the relevant chunks ranked at the top (little noise)?</dd></div><div class="c"><dt>RAGAS: Context recall</dt><dd>Did retrieval fetch everything needed to answer (vs a ground-truth answer)?</dd></div><div class="c"><dt>Building a test set</dt><dd>Collect 50–200 real questions + reference answers (or generate synthetic Q&A from your docs with an LLM, then review). Re-run after every prompt/chunking/model change = <b>regression testing</b>.</dd></div><div class="c"><dt>Tools</dt><dd>RAGAS, LangSmith evaluations, DeepEval, TruLens, Arize Phoenix.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>RAGAS in a few lines</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from ragas import evaluate, EvaluationDataset
+  <h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>RAGAS in a few lines</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from ragas import evaluate, EvaluationDataset
 from ragas.metrics import Faithfulness, ResponseRelevancy, LLMContextPrecisionWithReference, LLMContextRecall
 
 rows = [{&quot;user_input&quot;: q,
@@ -1813,7 +2550,28 @@ print(result)</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>When multi-agent?</dt><dd>When one agent has too many tools / too broad a prompt and starts choosing wrongly. Split into specialists. Otherwise prefer a <b>single agent</b> (simpler, cheaper, easier to debug).</dd></div><div class="c"><dt>Supervisor</dt><dd>A central LLM routes each step to a specialist agent (researcher, coder, writer) and decides when done. Easy to control.</dd></div><div class="c"><dt>Hierarchical</dt><dd>Supervisors of supervisors (teams of agents) for big systems.</dd></div><div class="c"><dt>Network / swarm (handoffs)</dt><dd>Agents hand control directly to each other ("transfer to billing agent"). Flexible but harder to control.</dd></div><div class="c"><dt>Handoffs in LangGraph</dt><dd>A node returns <code>Command(goto="agent_b", update={...})</code> — update state and jump in one step.</dd></div><div class="c"><dt>Agent-as-tool</dt><dd>Wrap a sub-agent as a tool the main agent can call; the main agent stays in charge.</dd></div><div class="c"><dt>Protocols</dt><dd><b>MCP</b> = agent ↔ tools/data. <b>A2A</b> (Agent2Agent, Google) = agent ↔ agent across frameworks/vendors.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Supervisor with Command</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import Literal
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>Command(goto=, update=)</code></td><td>jump to node + update state</td></tr><tr><td><code>supervisor</code></td><td>decides who works next</td></tr><tr><td><code>worker agents</code></td><td>specialists</td></tr></tbody></table><figure class="code"><figcaption><span>Supervisor with Command (simple)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()          # reads GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+from typing import Literal
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.types import Command
+
+def supervisor(s) -&gt; Command[Literal[&quot;math&quot;, &quot;poet&quot;, &quot;__end__&quot;]]:
+    if len(s[&quot;messages&quot;]) &gt; 1:                     # someone already answered
+        return Command(goto=END)
+    q = s[&quot;messages&quot;][-1].content
+    return Command(goto=&quot;math&quot; if any(ch.isdigit() for ch in q) else &quot;poet&quot;)
+
+def math(s): return Command(goto=&quot;supervisor&quot;,
+                            update={&quot;messages&quot;: [llm.invoke(&quot;Solve: &quot; + s[&quot;messages&quot;][0].content)]})
+def poet(s): return Command(goto=&quot;supervisor&quot;,
+                            update={&quot;messages&quot;: [llm.invoke(&quot;Write 2 poetic lines on: &quot; + s[&quot;messages&quot;][0].content)]})
+
+g = StateGraph(MessagesState)
+g.add_node(&quot;supervisor&quot;, supervisor); g.add_node(&quot;math&quot;, math); g.add_node(&quot;poet&quot;, poet)
+g.add_edge(START, &quot;supervisor&quot;)
+print(g.compile().invoke({&quot;messages&quot;: [(&quot;user&quot;, &quot;12*12&quot;)]})[&quot;messages&quot;][-1].content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Supervisor with Command</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from typing import Literal
 from langgraph.types import Command
 from pydantic import BaseModel
 
@@ -1857,7 +2615,14 @@ app = g.compile()</code></pre></figure>
   </header>
   <h3 class="sub">Key concepts</h3>
   <dl class="concepts"><div class="c"><dt>Cost</dt><dd>Smaller model for easy steps (routing/classification), big model only when needed (<b>model routing</b>); <b>caching</b> (exact or semantic cache; provider prompt caching for long static prefixes); trim/summarise history; limit max tokens; batch offline jobs.</dd></div><div class="c"><dt>Latency</dt><dd>Streaming (time-to-first-token), parallel nodes / <code>RunnableParallel</code>, async, smaller models, fewer LLM hops, pre-compute embeddings, keep the vector index warm.</dd></div><div class="c"><dt>Reliability</dt><dd><code>.with_retry()</code> for transient errors/rate limits, <code>.with_fallbacks()</code> to a backup model, timeouts, structured output + validation, max iterations / <code>recursion_limit</code>, checkpointers to resume.</dd></div><div class="c"><dt>Rate limits</dt><dd>Exponential backoff, request queues, <code>InMemoryRateLimiter</code>, spread load across keys/regions.</dd></div><div class="c"><dt>Deployment</dt><dd>FastAPI/LangGraph Platform (LangSmith Deployment) for serving graphs with persistence, streaming and background runs; Docker; Postgres for checkpoints/store; Redis for cache.</dd></div><div class="c"><dt>Monitoring</dt><dd>LangSmith traces, token/cost dashboards, latency p95, error rates, user feedback (thumbs), online evals on sampled traffic.</dd></div></dl>
-  <h3 class="sub">Code</h3><figure class="code"><figcaption><span>Retries, fallbacks, cache, rate limit</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.rate_limiters import InMemoryRateLimiter
+  <h3 class="sub">Easy example <span class="tag">standalone · copy &amp; run</span></h3><table class="keys"><thead><tr><th>Function / argument</th><th>Means</th></tr></thead><tbody><tr><td><code>.with_retry(stop_after_attempt=)</code></td><td>retry on errors</td></tr><tr><td><code>.with_fallbacks([backup])</code></td><td>use backup model</td></tr><tr><td><code>set_llm_cache(InMemoryCache())</code></td><td>reuse same answers</td></tr><tr><td><code>InMemoryRateLimiter(requests_per_second=)</code></td><td>slow down calls</td></tr><tr><td><code>config={&#x27;recursion_limit&#x27;: n}</code></td><td>cap graph steps</td></tr></tbody></table><figure class="code"><figcaption><span>Retry + fallback</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from dotenv import load_dotenv; load_dotenv()
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+main   = ChatGoogleGenerativeAI(model=&quot;gemini-flash-lite-latest&quot;)
+backup = ChatGoogleGenerativeAI(model=&quot;gemini-flash-latest&quot;)
+
+llm = main.with_retry(stop_after_attempt=3).with_fallbacks([backup])
+print(llm.invoke(&quot;hi&quot;).content)</code></pre></figure><h3 class="sub">From the lecture <span class="tag">course / project code</span></h3><figure class="code"><figcaption><span>Retries, fallbacks, cache, rate limit</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="language-python">from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_core.globals import set_llm_cache
 from langchain_core.caches import InMemoryCache
 
